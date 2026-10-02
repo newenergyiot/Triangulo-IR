@@ -1,1 +1,635 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico de Leituras - NewEnergy</title>
 
+    <!-- Script Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Script jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent-blue: #007aff;
+            --accent-red: #f43f5e;
+            --accent-green: #10b981;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .sensor-info h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+        }
+
+        .sensor-info p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .btn-secundary { background-color: #e2e8f0; color: var(--text-primary); }
+        .btn-primary { background-color: var(--accent-blue); color: white; }
+
+        .tabs {
+            display: flex;
+            background: #e2e8f0;
+            padding: 4px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            gap: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .tab.active {
+            background: var(--card-bg);
+            color: var(--accent-blue);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            height: 300px;
+            position: relative;
+        }
+
+        .list-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 10px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .data-divider {
+            padding: 10px 0 5px 0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            margin-top: 10px;
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .item:last-child { border-bottom: none; }
+
+        .item.alerta { background-color: #fff1f2; padding: 12px; border-radius: 8px; margin: 4px 0; }
+
+        .valor-critico { color: var(--accent-red); font-weight: bold; }
+        .normal { color: var(--accent-green); font-weight: bold; }
+
+        .erro {
+            padding: 20px;
+            background: #fff1f2;
+            color: var(--accent-red);
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="erroFirebase"></div>
+
+    <div class="header-card">
+        <div class="sensor-info">
+            <h2 id="sensorNome">Carregando sensor...</h2>
+            <p>Local: <span id="sensorLocal">--</span> | Limites: Temp (<span id="lblTMin">--</span> a <span id="lblTMax">--</span>°C) | Umid (<span id="lblHMin">--</span> a <span id="lblHMax">--</span>%)</p>
+        </div>
+        <div class="actions">
+            <button id="btnVoltar" class="btn-secundary">Voltar</button>
+            <button id="btnPdf" class="btn-primary">Exportar PDF</button>
+        </div>
+    </div>
+
+    <div class="tabs" id="tabsGroup">
+        <div class="tab active" data-periodo="diario">Hoje</div>
+        <div class="tab" data-periodo="semanal">7 Dias</div>
+        <div class="tab" data-periodo="mensal">Este Mês</div>
+        <div class="tab" data-periodo="anual">Este Ano</div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+    </div>
+
+    <div class="list-container">
+        <div id="lista-historico">
+            <p style="text-align:center;padding:40px">Aguardando inicialização...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAHF7mVM9Yv71cnqG-C1_P7MfEj1hc6_Bs",
+        authDomain: "nestu-02.firebaseapp.com",
+        databaseURL: "https://nestu-02-default-rtdb.firebaseio.com",
+        projectId: "nestu-02",
+        storageBucket: "nestu-02.firebasestorage.app",
+        messagingSenderId: "440418278168",
+        appId: "1:440418278168:web:15c519eb00200a33435c6d"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    const db = firebase.database();
+    const auth = firebase.auth(); // Inicializa o serviço de autenticação
+
+    // PROTEÇÃO DE AUTH: Redireciona para o login se não houver usuário autenticado
+    auth.onAuthStateChanged(user => {
+        if (!user) {
+            window.location.href = "index.html"; 
+        }
+    });
+
+    const state = {
+        sensorID: new URLSearchParams(window.location.search).get("id"),
+        sensorConfig: null,
+        globalData: [],
+        chartInstance: null,
+        limites: { tMin: 2, tMax: 8, hMin: 30, hMax: 70 }
+    };
+
+    let elements = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+        elements = {
+            sensorNome: document.getElementById("sensorNome"),
+            sensorLocal: document.getElementById("sensorLocal"),
+            lblTMin: document.getElementById("lblTMin"),
+            lblTMax: document.getElementById("lblTMax"),
+            lblHMin: document.getElementById("lblHMin"),
+            lblHMax: document.getElementById("lblHMax"),
+            erroFirebase: document.getElementById("erroFirebase"),
+            listaHistorico: document.getElementById("lista-historico"),
+            btnPdf: document.getElementById("btnPdf"),
+            btnVoltar: document.getElementById("btnVoltar"),
+            tabsGroup: document.getElementById("tabsGroup"),
+            chartCtx: document.getElementById("mainChart") ? document.getElementById("mainChart").getContext("2d") : null
+        };
+
+        setupEventListeners();
+        
+        if (!state.sensorID) {
+            elements.sensorNome.textContent = "Nenhum sensor selecionado";
+            elements.listaHistorico.innerHTML = `
+                <div class="erro">Nenhum ID de sensor foi informado na URL.<br><br>Acesse o histórico através do painel de controle.</div>
+            `;
+            return;
+        }
+
+        carregarSensorESuasConfiguracoes();
+    });
+
+    function setupEventListeners() {
+        if (elements.btnVoltar) elements.btnVoltar.addEventListener("click", voltarPainel);
+        if (elements.btnPdf) elements.btnPdf.addEventListener("click", exportarPDF);
+
+        if (elements.tabsGroup) {
+            elements.tabsGroup.addEventListener("click", (e) => {
+                const target = e.target;
+                if (!target.classList.contains("tab")) return;
+
+                document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+                target.classList.add("active");
+
+                const periodo = target.getAttribute("data-periodo");
+                fetchData(periodo);
+            });
+        }
+    }
+
+    async function carregarSensorESuasConfiguracoes() {
+        try {
+            const sensorSnap = await db.ref(`central_sensores/${state.sensorID}`).once("value");
+            
+            if (sensorSnap.exists()) {
+                state.sensorConfig = sensorSnap.val();
+                elements.sensorNome.textContent = state.sensorID;
+                elements.sensorLocal.textContent = state.sensorConfig.nome || state.sensorConfig.local || "Local não definido";
+
+                if (state.sensorConfig.tempMin !== undefined && state.sensorConfig.tempMin !== null) state.limites.tMin = Number(state.sensorConfig.tempMin);
+                if (state.sensorConfig.tempMax !== undefined && state.sensorConfig.tempMax !== null) state.limites.tMax = Number(state.sensorConfig.tempMax);
+                if (state.sensorConfig.humMin !== undefined && state.sensorConfig.humMin !== null) state.limites.hMin = Number(state.sensorConfig.humMin);
+                if (state.sensorConfig.humMax !== undefined && state.sensorConfig.humMax !== null) state.limites.hMax = Number(state.sensorConfig.humMax);
+            } else {
+                elements.sensorNome.textContent = state.sensorID;
+                elements.sensorLocal.textContent = "Sensor não cadastrado na central";
+            }
+
+            elements.lblTMin.textContent = state.limites.tMin;
+            elements.lblTMax.textContent = state.limites.tMax;
+            elements.lblHMin.textContent = state.limites.hMin;
+            elements.lblHMax.textContent = state.limites.hMax;
+
+            fetchData("diario");
+        } catch (error) {
+            console.error("Erro ao carregar configurações do sensor:", error);
+            fetchData("diario");
+        }
+    }
+
+    function checarErro(temp, hum) {
+        const erroTemp = temp > state.limites.tMax || temp < state.limites.tMin;
+        const erroHum = hum > state.limites.hMax || hum < state.limites.hMin;
+        return { erroTemp, erroHum, temErro: erroTemp || erroHum };
+    }
+
+    async function fetchData(periodo) {
+        elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Sincronizando leituras do sensor...</p>';
+        state.globalData = [];
+
+        if (state.chartInstance) {
+            state.chartInstance.destroy();
+            state.chartInstance = null;
+        }
+
+        try {
+            const agora = new Date();
+            const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+            const seteDiasAtras = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+            const historicoSnap = await db.ref(`historico/${state.sensorID}`).once("value");
+            
+            if (!historicoSnap.exists()) {
+                return mostrarSemDados();
+            }
+
+            const base = historicoSnap.val();
+
+            function varrerEProcessar(obj) {
+                if (!obj || typeof obj !== "object") return;
+
+                if (obj.temp !== undefined || obj.hum !== undefined || obj.t !== undefined) {
+                    const temperatura = obj.temp !== undefined ? obj.temp : obj.t;
+                    const umidade = obj.hum !== undefined ? obj.hum : obj.h;
+                    const tsRegistro = obj.timestamp || obj.ts || Date.now();
+                    
+                    processarRegistro(tsRegistro, { temp: temperatura, hum: umidade }, periodo, agora, inicioHoje, seteDiasAtras);
+                    return;
+                }
+
+                Object.keys(obj).forEach(chave => {
+                    const subItem = obj[chave];
+                    if (subItem && typeof subItem === "object") {
+                        if (subItem.temp !== undefined || subItem.hum !== undefined || subItem.t !== undefined) {
+                            const temperatura = subItem.temp !== undefined ? subItem.temp : subItem.t;
+                            const umidade = subItem.hum !== undefined ? subItem.hum : subItem.h;
+                            processarRegistro(chave, { temp: temperatura, hum: umidade }, periodo, agora, inicioHoje, seteDiasAtras);
+                        } else {
+                            varrerEProcessar(subItem);
+                        }
+                    }
+                });
+            }
+
+            varrerEProcessar(base);
+
+            const mapaUnico = new Map();
+            state.globalData.forEach(item => mapaUnico.set(`${item.ts}_${item.temp}_${item.hum}`, item));
+            state.globalData = [...mapaUnico.values()].sort((a, b) => b.ts - a.ts);
+
+            if (!state.globalData.length) return mostrarSemDados();
+
+            renderUI();
+            renderChart(periodo);
+        } catch (error) {
+            console.error(error);
+            elements.listaHistorico.innerHTML = `
+                <div class="erro"><b>Erro ao carregar histórico do sensor.</b><br><br>${escapeHtml(error.message)}</div>
+            `;
+        }
+    }
+
+    function processarRegistro(keyOrTs, r, periodo, agora, inicioHoje, seteDiasAtras) {
+        if (!r || typeof r !== "object") return;
+
+        const temp = Number(r.temp);
+        const hum = Number(r.hum);
+        if (!Number.isFinite(temp) || !Number.isFinite(hum)) return;
+
+        let timestamp = Number(keyOrTs);
+        if (!Number.isFinite(timestamp)) timestamp = Number(r.timestamp || r.ts || Date.now());
+        if (timestamp < 1e11) timestamp = timestamp * 1000;
+
+        const dataObj = new Date(timestamp);
+        if (isNaN(dataObj.getTime())) return;
+
+        const ms = timestamp;
+        const ehDiario = periodo === "diario" && ms >= inicioHoje;
+        const ehSemanal = periodo === "semanal" && ms >= seteDiasAtras;
+        const ehMensal = periodo === "mensal" && dataObj.getMonth() === agora.getMonth() && dataObj.getFullYear() === agora.getFullYear();
+        const ehAnual = periodo === "anual" && dataObj.getFullYear() === agora.getFullYear();
+
+        if (ehDiario || ehSemanal || ehMensal || ehAnual) {
+            state.globalData.push({
+                ts: timestamp,
+                temp,
+                hum,
+                data: dataObj.toLocaleDateString("pt-BR"),
+                hora: dataObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+            });
+        }
+    }
+
+    function renderUI() {
+        elements.listaHistorico.innerHTML = "";
+        let ultimaData = "";
+
+        state.globalData.forEach(d => {
+            if (d.data !== ultimaData) {
+                const divider = document.createElement("div");
+                divider.className = "data-divider";
+                divider.innerHTML = `<span>${d.data}</span>`;
+                elements.listaHistorico.appendChild(divider);
+                ultimaData = d.data;
+            }
+
+            const { erroTemp, erroHum, temErro } = checarErro(d.temp, d.hum);
+
+            const itemDiv = document.createElement("div");
+            itemDiv.className = `item ${temErro ? "alerta" : ""}`;
+            itemDiv.innerHTML = `
+                <div><b>${d.hora}</b></div>
+                <div style="display:flex; gap:20px; text-align:right">
+                    <div>
+                        <small>TEMP</small><br>
+                        <span class="${erroTemp ? "valor-critico" : ""}">${d.temp.toFixed(1)}°C</span>
+                    </div>
+                    <div>
+                        <small>UMID</small><br>
+                        <span class="${erroHum ? "valor-critico" : ""}">${d.hum.toFixed(1)}%</span>
+                    </div>
+                    <div>
+                        <small>STATUS</small><br>
+                        <span class="${temErro ? "valor-critico" : "normal"}">${temErro ? "ALERTA" : "OK"}</span>
+                    </div>
+                </div>
+            `;
+            elements.listaHistorico.appendChild(itemDiv);
+        });
+    }
+
+    function renderChart(periodo) {
+        if (!elements.chartCtx) return;
+
+        const dadosOrdenados = [...state.globalData].sort((a, b) => a.ts - b.ts);
+
+        const gradTemp = elements.chartCtx.createLinearGradient(0, 0, 0, 300);
+        gradTemp.addColorStop(0, "rgba(244, 63, 94, 0.2)");
+        gradTemp.addColorStop(1, "rgba(244, 63, 94, 0)");
+
+        const gradHum = elements.chartCtx.createLinearGradient(0, 0, 0, 300);
+        gradHum.addColorStop(0, "rgba(0, 122, 255, 0.2)");
+        gradHum.addColorStop(1, "rgba(0, 122, 255, 0)");
+
+        state.chartInstance = new Chart(elements.chartCtx, {
+            type: "line",
+            data: {
+                labels: dadosOrdenados.map(d => 
+                    (periodo === "diario" || periodo === "semanal") 
+                        ? `${d.data.split("/")[0]}/${d.data.split("/")[1]} ${d.hora}` 
+                        : d.data
+                ),
+                datasets: [
+                    {
+                        label: "Temperatura (°C)",
+                        data: dadosOrdenados.map(d => d.temp),
+                        borderColor: "#f43f5e",
+                        backgroundColor: gradTemp,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: dadosOrdenados.length > 40 ? 0 : 3,
+                        borderWidth: 2
+                    },
+                    {
+                        label: "Umidade (%)",
+                        data: dadosOrdenados.map(d => d.hum),
+                        borderColor: "#007aff",
+                        backgroundColor: gradHum,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: dadosOrdenados.length > 40 ? 0 : 3,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: { position: "top" }
+                },
+                scales: {
+                    x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                    y: { grid: { color: "#f1f5f9" } }
+                }
+            }
+        });
+    }
+
+    async function exportarPDF() {
+        if (!state.globalData.length) return alert("Não existem leituras para exportar.");
+
+        const jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF || null);
+        if (!jsPDF) return alert("Biblioteca de PDF não foi carregada corretamente.");
+
+        const doc = new jsPDF();
+        const activeTab = document.querySelector(".tab.active").innerText;
+        const originalText = elements.btnPdf.innerText;
+
+        elements.btnPdf.disabled = true;
+
+        const linhasPorPagina = 26;
+        const totalPaginas = Math.max(1, Math.ceil(state.globalData.length / linhasPorPagina));
+
+        const desenharHeader = (pagina) => {
+            doc.setFillColor(26, 54, 93);
+            doc.rect(0, 0, 210, 38, "F");
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.text("NEWENERGY", 15, 16);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text("RELATÓRIO DE MONITORAMENTO", 15, 23);
+            doc.setFontSize(8);
+            doc.text(`SENSOR: ${state.sensorID} (${elements.sensorLocal.textContent})`, 15, 29);
+            doc.text(`FILTRO: ${activeTab.toUpperCase()}`, 195, 15, { align: "right" });
+            doc.text(`EMISSÃO: ${new Date().toLocaleDateString("pt-BR")}`, 195, 21, { align: "right" });
+            doc.text(`PÁGINA: ${pagina} / ${totalPaginas}`, 195, 27, { align: "right" });
+            doc.setFillColor(0, 122, 255);
+            doc.rect(0, 38, 210, 1.2, "F");
+
+            doc.setFillColor(241, 245, 249);
+            doc.rect(15, 43, 180, 10, "F");
+            doc.setDrawColor(226, 232, 240);
+            doc.rect(15, 43, 180, 10, "S");
+            
+            doc.setTextColor(71, 85, 105);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            
+            doc.text(`LIMITES DESTE SENSOR -> Temp: ${state.limites.tMin}°C a ${state.limites.tMax}°C  |  Umidade: ${state.limites.hMin}% a ${state.limites.hMax}%`, 20, 49.5);
+        };
+
+        const desenharTabelaHeader = (yPos) => {
+            doc.setFillColor(245, 248, 251);
+            doc.rect(15, yPos - 6, 180, 10, "F");
+            doc.setDrawColor(200, 210, 220);
+            doc.line(15, yPos + 4, 195, yPos + 4);
+            doc.setTextColor(26, 54, 93);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text("DATA / HORA", 20, yPos);
+            doc.text("TEMPERATURA", 78, yPos);
+            doc.text("UMIDADE", 128, yPos);
+            doc.text("STATUS", 172, yPos);
+            return yPos + 10;
+        };
+
+        let paginaAtual = 1;
+        desenharHeader(paginaAtual);
+        let y = desenharTabelaHeader(62);
+
+        for (let i = 0; i < state.globalData.length; i++) {
+            const item = state.globalData[i];
+
+            if (y > 280) {
+                doc.addPage();
+                paginaAtual++;
+                desenharHeader(paginaAtual);
+                y = desenharTabelaHeader(62);
+            }
+
+            const { temErro } = checarErro(item.temp, item.hum);
+
+            if (temErro) {
+                doc.setFillColor(255, 241, 242);
+                doc.rect(15, y - 5, 180, 8, "F");
+                doc.setTextColor(225, 29, 72);
+                doc.setFont("helvetica", "bold");
+            } else {
+                doc.setTextColor(51, 65, 85);
+                doc.setFont("helvetica", "normal");
+            }
+
+            doc.setFontSize(8);
+            doc.text(`${item.data} ${item.hora}`, 20, y);
+            doc.text(`${item.temp.toFixed(1)}°C`, 83, y);
+            doc.text(`${item.hum.toFixed(1)}%`, 133, y);
+            doc.setTextColor(...(temErro ? [225, 29, 72] : [16, 185, 129]));
+            doc.text(temErro ? "ALERTA" : "NORMAL", 172, y);
+
+            y += 8;
+
+            if (i % 20 === 0) {
+                elements.btnPdf.innerText = `Gerando... ${Math.round((i / state.globalData.length) * 100)}%`;
+                await new Promise(resolve => setTimeout(resolve, 1));
+            }
+        }
+
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text("NewEnergy - Monitoramento Ambiental", 105, 292, { align: "center" });
+
+        doc.save(`Relatorio_NewEnergy_${state.sensorID}.pdf`);
+
+        elements.btnPdf.disabled = false;
+        elements.btnPdf.innerText = originalText;
+    }
+
+    function mostrarSemDados() {
+        elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Nenhum registro encontrado para este sensor no período selecionado.</p>';
+    }
+
+    function voltarPainel() {
+        window.location.href = `admin.html`;
+    }
+
+    function escapeHtml(string) {
+        return String(string).replace(/[&<>"']/g, match => {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return map[match];
+        });
+    }
+</script>
+
+</body>
+</html>
