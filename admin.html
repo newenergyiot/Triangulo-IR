@@ -14,7 +14,7 @@
 
 <body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-12">
 
-    <!-- BARRA SUPERIOR -->
+    <!-- BARRA SUPERIOR / HEADER -->
     <header class="bg-slate-900 text-white shadow-md mb-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex justify-between items-center">
             <div class="flex items-center space-x-3">
@@ -23,7 +23,10 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
                     </svg>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight">Monitoramento & Gestão de Sensores</h1>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Monitoramento & Gestão de Sensores</h1>
+                    <p class="text-xs text-slate-400">Painel de Controlo Central de Telemetria</p>
+                </div>
             </div>
             <button onclick="abrirModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 flex items-center space-x-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,16 +45,16 @@
         </div>
     </main>
 
-    <!-- MODAL DE CADASTRO / EDIÇÃO -->
+    <!-- MODAL DE CADASTRO / EDIÇÃO DE SENSOR -->
     <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <!-- Cabeçalho Modal -->
+            <!-- Cabeçalho do Modal -->
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                 <h3 id="titulo" class="text-lg font-bold text-slate-800">Novo Sensor</h3>
-                <button onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+                <button type="button" onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
             </div>
 
-            <!-- Formulário -->
+            <!-- Formulário Completo -->
             <form onsubmit="salvar(event)" class="p-6 overflow-y-auto space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -59,37 +62,40 @@
                         <input type="text" id="id" placeholder="Ex: SENSOR_01" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nome / Local</label>
-                        <input type="text" id="nome" placeholder="Ex: Câmera Fria 01" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nome / Localização</label>
+                        <input type="text" id="nome" placeholder="Ex: Câmara Fria 01" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Client ID</label>
-                    <input type="text" id="cliente" placeholder="Identificador do Cliente" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="cliente" placeholder="Identificador do Cliente / Empresa" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
-                <!-- Limites -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Temp Mín (°C)</label>
-                        <input type="number" step="0.1" id="tempMin" class="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Temp Máx (°C)</label>
-                        <input type="number" step="0.1" id="tempMax" class="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Umidade Mín (%)</label>
-                        <input type="number" step="0.1" id="humMin" class="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Umidade Máx (%)</label>
-                        <input type="number" step="0.1" id="humMax" class="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
+                <!-- Limites de Alerta de Temperatura e Umidade -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <span class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Limites de Alerta</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Temp Mín (°C)</label>
+                            <input type="number" step="0.1" id="tempMin" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Temp Máx (°C)</label>
+                            <input type="number" step="0.1" id="tempMax" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Umidade Mín (%)</label>
+                            <input type="number" step="0.1" id="humMin" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600">Umidade Máx (%)</label>
+                            <input type="number" step="0.1" id="humMax" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
+                        </div>
                     </div>
                 </div>
 
-                <!-- Configurações de Notificação -->
+                <!-- Configurações de Notificação e Intervalos -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div class="sm:col-span-3">
                         <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">E-mail para Alertas</label>
@@ -97,33 +103,43 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600">Freq. Registro (s)</label>
-                        <input type="number" id="freqRegistro" placeholder="60" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1">
+                        <input type="number" id="freqRegistro" placeholder="60" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600">Interv. Alerta (m)</label>
-                        <input type="number" id="intervaloAlerta" placeholder="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1">
+                        <input type="number" id="intervaloAlerta" placeholder="15" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-1 focus:ring-indigo-500">
                     </div>
                 </div>
 
-                <!-- Rotas HTTP/Firebase -->
-                <div class="space-y-2 pt-2 border-t border-slate-200">
-                    <span class="block text-xs font-semibold text-slate-500 uppercase">Mapeamento de Rotas</span>
+                <!-- Rotas de Comunicação (Personalizadas / Sugeridas) -->
+                <div class="space-y-2 pt-3 border-t border-slate-200">
+                    <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Mapeamento de Rotas no Firebase</span>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input type="text" id="rotaTemp" placeholder="/sensores/SENSOR_01/temp" class="border border-slate-300 rounded px-2 py-1 text-xs">
-                        <input type="text" id="rotaHum" placeholder="/sensores/SENSOR_01/hum" class="border border-slate-300 rounded px-2 py-1 text-xs">
-                        <input type="text" id="rotaLastSeen" placeholder="/sensores/SENSOR_01/last_seen" class="border border-slate-300 rounded px-2 py-1 text-xs">
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Rota Temperatura</label>
+                            <input type="text" id="rotaTemp" placeholder="/sensores/SENSOR_01/temp" class="w-full border border-slate-300 rounded px-2 py-1 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Rota Umidade</label>
+                            <input type="text" id="rotaHum" placeholder="/sensores/SENSOR_01/hum" class="w-full border border-slate-300 rounded px-2 py-1 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Rota Last Seen</label>
+                            <input type="text" id="rotaLastSeen" placeholder="/sensores/SENSOR_01/last_seen" class="w-full border border-slate-300 rounded px-2 py-1 text-xs">
+                        </div>
                     </div>
                 </div>
 
+                <!-- Botoes de Ação -->
                 <div class="pt-4 flex justify-end space-x-3 border-t border-slate-200">
-                    <button type="button" onclick="fecharModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm">Salvar Dados</button>
+                    <button type="button" onclick="fecharModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors">Salvar Alterações</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- INICIALIZAÇÃO FIREBASE E LÓGICA JAVASCRIPT -->
+    <!-- SCRIPTS DE CONTROLO E LOGICA DO PAINEL -->
     <script>
         // Configuração do Firebase Realtime Database
         const firebaseConfig = {
@@ -135,7 +151,7 @@
         let editando = false;
         let sensorEditando = null;
 
-        // Formatação de Segundos em MM:SS ou HH:MM:SS
+        // Função utilitária para formatar segundos em horas, minutos e segundos
         function formatarTempo(segs) {
             if (!segs || segs <= 0) return "0s";
             const h = Math.floor(segs / 3600);
@@ -146,7 +162,7 @@
             return `${s}s`;
         }
 
-        // Renderização dos Cards no Painel Admin
+        // Renderiza o card do sensor na página mantendo todo o layout
         function renderizarCard(id, data) {
             let card = document.getElementById(`card-${id}`);
             
@@ -159,7 +175,7 @@
 
             card.innerHTML = `
                 <div class="p-5">
-                    <!-- Cabeçalho do Card -->
+                    <!-- Topo do Card -->
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <span class="text-xs font-bold text-indigo-600 tracking-wider uppercase">${id}</span>
@@ -174,7 +190,7 @@
                         </div>
                     </div>
 
-                    <!-- Leituras do Sensor -->
+                    <!-- Bloco Principal: Temperatura & Umidade (Idêntico ao Original) -->
                     <div class="grid grid-cols-2 gap-3 my-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <div>
                             <span class="text-xs text-slate-500 block font-medium">Temperatura</span>
@@ -186,7 +202,7 @@
                         </div>
                     </div>
 
-                    <!-- Metadados / Visto por Último -->
+                    <!-- Rodapé com Informações de Visto por Último -->
                     <div class="text-xs text-slate-400 space-y-1">
                         <div class="flex justify-between">
                             <span>Visto por último:</span>
@@ -195,7 +211,7 @@
                     </div>
                 </div>
 
-                <!-- Rodapé com Ações -->
+                <!-- Ações do Sensor -->
                 <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs">
                     <button onclick="editar('${id}')" class="text-indigo-600 font-semibold hover:text-indigo-800 flex items-center space-x-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -208,17 +224,27 @@
                 </div>
             `;
 
-            // Escutadores em Tempo Real para os dados no Firebase
+            // Escuta em Tempo Real do Firebase para o Sensor Ativo
             db.ref(`sensores/${id}`).on("value", snapshot => {
                 const sData = snapshot.val() || {};
 
-                // 1. Atualizar Temperatura e Umidade
+                // 1. Atualizar Leituras de Temperatura e Umidade
                 const elTemp = document.getElementById(`temp-${id}`);
                 const elHum = document.getElementById(`hum-${id}`);
-                if (elTemp) elTemp.textContent = sData.temp !== undefined ? `${parseFloat(sData.temp).toFixed(1)} °C` : "-- °C";
-                if (elHum) elHum.textContent = sData.hum !== undefined ? `${parseFloat(sData.hum).toFixed(1)} %` : "-- %";
+                
+                if (elTemp) {
+                    elTemp.textContent = (sData.temp !== undefined && sData.temp !== null) 
+                        ? `${parseFloat(sData.temp).toFixed(1)} °C` 
+                        : "-- °C";
+                }
+                
+                if (elHum) {
+                    elHum.textContent = (sData.hum !== undefined && sData.hum !== null) 
+                        ? `${parseFloat(sData.hum).toFixed(1)} %` 
+                        : "-- %";
+                }
 
-                // 2. Atualizar Status Online/Offline
+                // 2. Atualizar Estado da Conexão / Timestamp
                 if (sData.last_seen) {
                     atualizarOnline(id, sData.last_seen);
                 }
@@ -241,7 +267,7 @@
             });
         }
 
-        // Monitorar lista global de sensores cadastrados
+        // Eventos Globais de Monitorização dos Sensores Cadastrados
         db.ref("central_sensores").on("child_added", snapshot => {
             renderizarCard(snapshot.key, snapshot.val());
         });
@@ -255,7 +281,7 @@
             if (card) card.remove();
         });
 
-        // Atualização de Status Online/Offline por Timestamp
+        // Atualização dos Indicadores de Conexão Online/Offline
         function atualizarOnline(id, timestamp) {
             if (!Number.isFinite(Number(timestamp))) return;
             let ts = Number(timestamp);
@@ -282,6 +308,7 @@
             }
         }
 
+        // Funções da Modal
         function abrirModal() {
             editando = false;
             sensorEditando = null;
