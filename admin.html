@@ -2,645 +2,612 @@
 <html lang="pt-BR">
 
 <head>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Central NewEnergy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Monitoramento - Central NewEnergy</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <link rel="manifest" href="manifest.json">
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDKs (v8) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .pulse-red {
+            animation: pulse-red-animation 1.5s infinite;
+        }
+
+        @keyframes pulse-red-animation {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+    </style>
 </head>
 
-<body class="bg-slate-50 font-sans min-h-screen">
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans antialiased">
 
-    <!-- CABEÇALHO --->
-    <header class="bg-white border-b p-5 shadow-sm">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="cursor-pointer select-none" id="logoAdmin" title="Clique 5 vezes para opções administrativas">
-                <h1 class="text-2xl font-bold text-slate-800">CENTRAL NEWENERGY</h1>
-                <p class="text-sm text-blue-600">Monitoramento Geral</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <span id="status" class="text-sm text-slate-500">● Conectando...</span>
-                <button onclick="solicitarPermissaoPush()" id="btnPush" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1">
-                    🔔 Ativar Alertas Push
-                </button>
-                <button id="btnNovoSensor" onclick="abrirModal()" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm">
-                    + Novo Sensor
-                </button>
-                <button onclick="fazerLogout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs">
-                    Sair
-                </button>
+    <!-- Navbar -->
+    <nav class="bg-slate-900 text-white shadow-lg border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-bolt text-amber-400 text-2xl"></i>
+                    <span class="font-bold text-xl tracking-wide">Central NewEnergy</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="btnNovoSensor" onclick="abrirModalNovo()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition flex items-center space-x-2 shadow">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Novo Sensor</span>
+                    </button>
+                    <button id="btnLogout" onclick="logout()"
+                        class="bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm transition">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
             </div>
         </div>
-    </header>
+    </nav>
 
-    <!-- SENSORES -->
-    <main class="max-w-7xl mx-auto p-6">
-        <div id="sensores" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-    </main>
-
-    <!-- MODAL DE CONFIGURAÇÃO / PAINEL DE SERVIÇO -->
-    <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-lg my-8 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-5 border-b pb-3">
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header Metrics / Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
                 <div>
-                    <h2 id="titulo" class="text-lg font-bold text-slate-800">Novo Sensor</h2>
-                    <p class="text-xs text-slate-500">Configurações Gerais e Serviços</p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Sensores</p>
+                    <h3 id="statTotal" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
                 </div>
-                <button onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+            </div>
+            
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Online</p>
+                    <h3 id="statOnline" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-wifi"></i>
+                </div>
             </div>
 
-            <form onsubmit="salvar(event)" class="space-y-4">
-                <div class="space-y-2">
-                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Informações Principais</span>
-                    <input id="id" required placeholder="SENSOR_01" class="campo">
-                    <input id="nome" required placeholder="Local / Equipamento (Ex: Sala Vacinas)" class="campo">
-                    <input id="cliente" required placeholder="Nome do Cliente" class="campo">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Alertas Ativos</p>
+                    <h3 id="statAlertas" class="text-2xl font-bold text-red-600 mt-1">0</h3>
                 </div>
-
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">Limites de Alerta & Notificação</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Temp. Mínima (°C)</label>
-                            <input id="tempMin" type="number" step="0.1" placeholder="2.0" class="campo">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Temp. Máxima (°C)</label>
-                            <input id="tempMax" type="number" step="0.1" placeholder="8.0" class="campo">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Umid. Mínima (%)</label>
-                            <input id="humMin" type="number" step="1" placeholder="30" class="campo">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Umid. Máxima (%)</label>
-                            <input id="humMax" type="number" step="1" placeholder="70" class="campo">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500">E-mail para Alertas</label>
-                        <input id="emailAlerta" type="email" placeholder="tecnico@empresa.com" class="campo">
-                    </div>
+                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
+            </div>
 
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Leitura (segundos)</label>
-                            <input id="freqRegistro" type="number" placeholder="60" class="campo">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Alerta (minutos)</label>
-                            <input id="intervaloAlerta" type="number" placeholder="15" class="campo">
-                        </div>
-                    </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Portas Abertas</p>
+                    <h3 id="statPortasAbertas" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
                 </div>
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-door-open"></i>
+                </div>
+            </div>
+        </div>
 
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Mapeamento Firebase</span>
+        <!-- Section Title & Search -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h2 class="text-xl font-bold text-slate-800 flex items-center space-x-2">
+                <i class="fa-solid fa-gauge-high text-blue-600"></i>
+                <span>Monitoramento em Tempo Real</span>
+            </h2>
+            <div class="relative w-full md:w-72">
+                <input type="text" id="inputBusca" onkeyup="filtrarSensores()" placeholder="Buscar por ID ou Nome..."
+                    class="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white shadow-sm">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+            </div>
+        </div>
+
+        <!-- Grid de Cards de Sensores -->
+        <div id="gridSensores" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Cards gerados dinamicamente via JS -->
+        </div>
+
+    </main>
+
+    <!-- Modal Modal Form (Cadastro/Edição) -->
+    <div id="modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100">
+            
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 id="modalTitulo" class="text-lg font-bold text-slate-800">Configurar Sensor</h3>
+                <button onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <form id="formSensor" onsubmit="salvar(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="text-xs font-bold text-slate-500">Rota Temperatura</label>
-                        <input id="rotaTemp" required placeholder="/sensores/SENSOR_01/temp" class="campo">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ID do Sensor *</label>
+                        <input type="text" id="id" required placeholder="EX: SENSOR_01"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-slate-500">Rota Umidade</label>
-                        <input id="rotaHum" required placeholder="/sensores/SENSOR_01/hum" class="campo">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500">Rota Porta</label>
-                        <input id="rotaPorta" placeholder="/sensores/SENSOR_01/porta" class="campo">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500">Rota Último Contato</label>
-                        <input id="rotaLastSeen" required placeholder="/sensores/SENSOR_01/last_seen" class="campo">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nome de Exibição</label>
+                        <input type="text" id="nome" placeholder="EX: Câmara Fria 1"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
 
-                <div class="flex gap-2 pt-3 border-t">
-                    <button type="button" onclick="fecharModal()" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">ID Cliente / Unidade</label>
+                        <input type="text" id="cliente" placeholder="EX: CLI_123"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">E-mail de Alerta</label>
+                        <input type="email" id="emailAlerta" placeholder="alertas@empresa.com"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4 mt-2">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Limites de Temperatura (°C)</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Mínima (°C)</label>
+                            <input type="number" step="0.1" id="tempMin" placeholder="2.0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Máxima (°C)</label>
+                            <input type="number" step="0.1" id="tempMax" placeholder="8.0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Limites de Umidade (%)</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Mínima (%)</label>
+                            <input type="number" step="0.1" id="humMin" placeholder="30.0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Máxima (%)</label>
+                            <input type="number" step="0.1" id="humMax" placeholder="70.0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Monitoramento da Porta</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Rota Porta (RTDB)</label>
+                            <input type="text" id="rotaPorta" placeholder="ex: sensores/s01/porta"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Tempo Limite Porta Aberta (Minutos)</label>
+                            <input type="number" id="tempoLimitePorta" placeholder="5"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Configurações de Intervalo (Segundos/Minutos)</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Freq. Registro (seg)</label>
+                            <input type="number" id="freqRegistro" placeholder="60"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Intervalo Alerta (min)</label>
+                            <input type="number" id="intervaloAlerta" placeholder="15"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Rotas no Firebase Realtime Database</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Rota Temp</label>
+                            <input type="text" id="rotaTemp" placeholder="sensores/s01/temp"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Rota Hum</label>
+                            <input type="text" id="rotaHum" placeholder="sensores/s01/hum"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Rota LastSeen</label>
+                            <input type="text" id="rotaLastSeen" placeholder="sensores/s01/ts"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 border-t border-slate-100 pt-4 mt-6">
+                    <button type="button" onclick="fecharModal()"
+                        class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition">
                         Cancelar
                     </button>
-                    <button id="salvarBtn" type="submit" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">
-                        Salvar Configurações
+                    <button type="submit"
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition shadow">
+                        Salvar Sensor
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- ESTILO -->
-    <style>
-        .campo {
-            width: 100%;
-            box-sizing: border-box;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 10px 12px;
-            font-size: 0.875rem;
-            outline: none;
-        }
-        .campo:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px #bfdbfe;
-        }
-    </style>
-
+    <!-- Logic Script -->
     <script>
-        (function(){
-            emailjs.init("kD4PCi1Nc4Tw0GD1e");
-        })();
-
+        // Firebase Configuração (Substitua com suas chaves)
         const firebaseConfig = {
-            apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
-            authDomain: "triangulo-ir.firebaseapp.com",
-            databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
-            projectId: "triangulo-ir",
-            storageBucket: "triangulo-ir.firebasestorage.app",
-            messagingSenderId: "24231298396",
-            appId: "1:24231298396:web:f218f281137628a2fdad99"
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+            projectId: "SEU_PROJETO",
+            storageBucket: "SEU_PROJETO.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+        // Inicializa Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
         const db = firebase.database();
-        const messaging = firebase.messaging();
+        const auth = firebase.auth();
+
+        // Inicializa EmailJS (Substitua pela sua PUBLIC_KEY)
+        (function () {
+            emailjs.init("SUA_EMAILJS_PUBLIC_KEY");
+        })();
 
         let editando = false;
-        let sensorEditando = null;
-        let listeners = {};
-        let cliquesLogoCount = 0;
+        let todosSensores = {};
+        let listenersAtivos = {};
+        let ultimaNotificacaoPorta = {};
 
-        function escapeHtml(str) {
-            if (!str) return "";
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        function escapeAttr(str) {
-            if (!str) return "";
-            return String(str).replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-
-        document.getElementById("logoAdmin").addEventListener("click", () => {
-            cliquesLogoCount++;
-            if (cliquesLogoCount >= 5) {
-                cliquesLogoCount = 0;
-                const btnNovo = document.getElementById("btnNovoSensor");
-                if (btnNovo.classList.contains("hidden")) {
-                    btnNovo.classList.remove("hidden");
-                    alert("Modo Administrativo Ativado: Botão '+ Novo Sensor' liberado!");
-                } else {
-                    btnNovo.classList.add("hidden");
-                    alert("Modo Administrativo Ocultado.");
-                }
-            }
+        // Inicialização e Monitoramento Realtime
+        document.addEventListener("DOMContentLoaded", () => {
+            carregarSensores();
         });
 
-        auth.onAuthStateChanged(user => {
-            if (!user) {
-                window.location.href = "index.html";
-            }
-        });
-
-        function fazerLogout() {
-            auth.signOut().then(() => {
-                window.location.href = "index.html";
+        function carregarSensores() {
+            db.ref("central_sensores").on("value", (snapshot) => {
+                const data = snapshot.val() || {};
+                todosSensores = data;
+                renderizarCards(data);
+                atualizarEstatisticas(data);
+                sincronizarListenersOtimizados(data);
             });
         }
 
-        function dispararEmailAlerta(emailDestino, equipamento, tipoAlerta, valorDetectado) {
-            if (!emailDestino) return;
-
-            const templateParams = {
-                para_email: emailDestino,
-                equipamento: equipamento,
-                tipo: tipoAlerta,
-                valor: valorDetectado,
-                data: new Date().toLocaleString("pt-BR")
-            };
-
-            emailjs.send('service_v0ldsah', 'template_hnmc8uf', templateParams)
-                .then(response => {
-                    console.log('E-mail de alerta enviado com sucesso!', response.status, response.text);
-                }, error => {
-                    console.error('Erro ao enviar e-mail de alerta:', error);
-                });
-        }
-
-        function limparListeners() {
-            Object.keys(listeners).forEach(rota => {
-                if (listeners[rota]) listeners[rota].off();
-            });
-            listeners = {};
-        }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker registrado com sucesso!', reg))
-                    .catch(err => console.log('Falha ao registrar Service Worker:', err));
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (Notification.permission === 'granted') {
-                const btnPush = document.getElementById('btnPush');
-                if (btnPush) {
-                    btnPush.classList.remove('bg-amber-500', 'hover:bg-amber-600');
-                    btnPush.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-                    btnPush.textContent = '🔔 Push Ativo';
-                }
-            }
-        });
-
-        async function solicitarPermissaoPush() {
-            try {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    alert('Notificações Push ativadas com sucesso neste dispositivo!');
-                    const btnPush = document.getElementById('btnPush');
-                    btnPush.classList.remove('bg-amber-500', 'hover:bg-amber-600');
-                    btnPush.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-                    btnPush.textContent = '🔔 Push Ativo';
-                } else {
-                    alert('Permissão de notificação negada pelo usuário.');
-                }
-            } catch (error) {
-                console.error("Erro ao pedir permissão de push:", error);
-            }
-        }
-
-        function dispararNotificacaoLocal(titulo, mensagem) {
-            if (Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification(titulo, {
-                        body: mensagem,
-                        vibrate: [200, 100, 200]
-                    });
-                });
-            }
-        }
-
-        db.ref("central_sensores").on("value", snapshot => {
-            limparListeners();
-            const container = document.getElementById("sensores");
+        function renderizarCards(sensores) {
+            const container = document.getElementById("gridSensores");
             container.innerHTML = "";
 
-            if (!snapshot.exists()) {
-                container.innerHTML = `<p class="text-slate-500 col-span-full text-center">Nenhum sensor cadastrado.</p>`;
-                document.getElementById("status").textContent = "● Nenhum sensor";
+            if (Object.keys(sensores).length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+                        <i class="fa-solid fa-microchip text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-slate-500 font-medium">Nenhum sensor cadastrado até o momento.</p>
+                        <button onclick="abrirModalNovo()" class="mt-3 text-blue-600 hover:underline text-sm font-semibold">
+                            + Cadastrar Primeiro Sensor
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
-            document.getElementById("status").textContent = "● Sistema conectado";
+            for (const [id, s] of Object.entries(sensores)) {
+                const card = document.createElement("div");
+                card.id = `card_${id}`;
+                card.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between";
 
-            snapshot.forEach(item => {
-                criarCard(item.key, item.val());
-            });
-        }, error => {
-            console.error(error);
-            document.getElementById("status").textContent = "● Erro de conexão";
-        });
-
-        function criarCard(id, sensor) {
-            const container = document.getElementById("sensores");
-            let card = document.getElementById(`card-${id}`);
-
-            if (card) {
-                verificarAlertaCaixas(id, sensor);
-                return;
-            }
-
-            card = document.createElement("div");
-            card.id = `card-${id}`;
-            card.className = "bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-colors duration-300";
-
-            const tempMin = sensor.tempMin !== undefined && sensor.tempMin !== null ? sensor.tempMin + "°C" : "--";
-            const tempMax = sensor.tempMax !== undefined && sensor.tempMax !== null ? sensor.tempMax + "°C" : "--";
-            const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
-            const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
-
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
+                card.innerHTML = `
                     <div>
-                        <p class="text-xs text-slate-400 font-bold">${escapeHtml(id)}</p>
-                        <h2 class="text-lg font-bold text-slate-800">${escapeHtml(sensor.nome || "Sensor")}</h2>
-                        <p class="text-xs text-slate-500">Cliente: ${escapeHtml(sensor.clientID || "-")}</p>
+                        <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h3 class="font-bold text-slate-800">${s.nome || id}</h3>
+                                <p class="text-xs text-slate-400 font-mono">${id} ${s.clientID ? '| ' + s.clientID : ''}</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span id="status_${id}" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                                    Aguardando...
+                                </span>
+                                <button onclick="editar('${id}')" class="text-slate-400 hover:text-blue-600 p-1">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="excluir('${id}')" class="text-slate-400 hover:text-red-600 p-1">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-5 grid grid-cols-2 gap-4">
+                            <!-- Temperatura -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="text-xs text-slate-400 uppercase font-semibold flex items-center space-x-1">
+                                    <i class="fa-solid fa-temperature-half text-red-400"></i>
+                                    <span>Temperatura</span>
+                                </span>
+                                <div class="mt-1 flex items-baseline justify-between">
+                                    <span id="val_temp_${id}" class="text-2xl font-bold text-slate-700">--</span>
+                                    <span class="text-xs text-slate-400">°C</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-1">
+                                    Min: ${s.tempMin ?? '--'} | Max: ${s.tempMax ?? '--'}
+                                </div>
+                            </div>
+
+                            <!-- Umidade -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="text-xs text-slate-400 uppercase font-semibold flex items-center space-x-1">
+                                    <i class="fa-solid fa-droplet text-blue-400"></i>
+                                    <span>Umidade</span>
+                                </span>
+                                <div class="mt-1 flex items-baseline justify-between">
+                                    <span id="val_hum_${id}" class="text-2xl font-bold text-slate-700">--</span>
+                                    <span class="text-xs text-slate-400">%</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-1">
+                                    Min: ${s.humMin ?? '--'} | Max: ${s.humMax ?? '--'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monitoramento da Porta -->
+                        <div class="px-5 pb-3">
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <i id="icon_porta_${id}" class="fa-solid fa-door-closed text-slate-400 text-lg"></i>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-600">Status da Porta</p>
+                                        <p id="time_porta_${id}" class="text-[10px] text-slate-400">Sem dados</p>
+                                    </div>
+                                </div>
+                                <span id="val_porta_${id}" class="text-xs font-bold px-2 py-1 rounded bg-slate-200 text-slate-600">
+                                    --
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="editar('${escapeAttr(id)}')" title="Configurações" class="bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition">✏️</button>
-                        <button onclick="excluir('${escapeAttr(id)}')" title="Excluir" class="bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-600 transition">🗑️</button>
+
+                    <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                        <span>Visto por último:</span>
+                        <span id="val_last_${id}" class="font-mono">--</span>
                     </div>
-                </div>
+                `;
 
-                <div class="grid grid-cols-2 gap-3 mt-4">
-                    <div id="box-temp-${escapeAttr(id)}" class="bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300">
-                        <span class="text-xs text-slate-500">Temperatura</span>
-                        <div id="temp-${escapeAttr(id)}" class="text-xl font-bold text-slate-800">-- °C</div>
-                        <div id="status-email-temp-${escapeAttr(id)}" class="text-[10px] text-rose-600 font-medium mt-1"></div>
-                    </div>
-                    <div id="box-hum-${escapeAttr(id)}" class="bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300">
-                        <span class="text-xs text-slate-500">Umidade</span>
-                        <div id="hum-${escapeAttr(id)}" class="text-xl font-bold text-slate-800">-- %</div>
-                        <div id="status-email-hum-${escapeAttr(id)}" class="text-[10px] text-rose-600 font-medium mt-1"></div>
-                    </div>
-                </div>
-
-                <!-- BOX DA PORTA DEDICADA AO SENSOR -->
-                <div id="box-porta-${escapeAttr(id)}" class="mt-3 bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300 flex justify-between items-center px-4">
-                    <span class="text-xs text-slate-500 font-medium">Status da Porta</span>
-                    <div id="porta-${escapeAttr(id)}" class="text-sm font-bold text-slate-700">--</div>
-                </div>
-
-                <div class="mt-3 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
-                    <span>Faixa Ideal Temp: <strong>${tempMin}</strong> a <strong>${tempMax}</strong></span>
-                </div>
-                <div class="mt-2 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
-                    <span>Faixa Ideal Umid: <strong>${humMin}</strong> a <strong>${humMax}</strong></span>
-                    <span>Intervalo: <strong>${sensor.freqRegistro || 60}s</strong></span>
-                </div>
-
-                <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                    <span id="online-${escapeAttr(id)}" class="text-sm text-slate-500">● Offline</span>
-                    <span id="seen-${escapeAttr(id)}" class="text-xs text-slate-500">--</span>
-                </div>
-
-                <a href="historico.html?id=${encodeURIComponent(id)}" target="_blank" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
-                    Ver Histórico
-                </a>
-            `;
-            container.appendChild(card);
-            
-            verificarAlertaCaixas(id, sensor);
-
-            if (sensor.rotaTemp) {
-                ouvirRota(sensor.rotaTemp, valor => {
-                    const elemento = document.getElementById(`temp-${id}`);
-                    if (elemento && Number.isFinite(valor)) {
-                        elemento.textContent = valor.toFixed(1) + " °C";
-                        verificarAlertaCaixas(id, sensor, valor, null);
-                    }
-                });
-            }
-
-            if (sensor.rotaHum) {
-                ouvirRota(sensor.rotaHum, valor => {
-                    const elemento = document.getElementById(`hum-${id}`);
-                    if (elemento && Number.isFinite(valor)) {
-                        elemento.textContent = valor.toFixed(1) + " %";
-                        verificarAlertaCaixas(id, sensor, null, valor);
-                    }
-                });
-            }
-
-            if (sensor.rotaPorta) {
-                ouvirRota(sensor.rotaPorta, valor => {
-                    atualizarStatusPorta(id, sensor, valor);
-                });
-            }
-
-            if (sensor.rotaLastSeen) {
-                ouvirRota(sensor.rotaLastSeen, valor => {
-                    atualizarOnline(id, valor);
-                });
+                container.appendChild(card);
             }
         }
 
-        function atualizarStatusPorta(id, sensor, valor) {
-            const safeId = escapeAttr(id);
-            const elementoPorta = document.getElementById(`porta-${safeId}`);
-            const boxPorta = document.getElementById(`box-porta-${safeId}`);
-
-            if (!elementoPorta || !boxPorta) return;
-
-            const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta" || String(valor).toLowerCase() === "open";
-
-            let nomeSensor = sensor.nome || id;
-
-            if (portaAberta) {
-                elementoPorta.textContent = "🚪 ABERTA";
-                elementoPorta.className = "text-sm font-bold text-rose-600";
-                boxPorta.className = "mt-3 bg-[#fff1f2] rounded-xl p-3 text-center border border-rose-300 transition-colors duration-300 flex justify-between items-center px-4";
-                
-                dispararNotificacaoLocal(
-                    `🚨 Porta Aberta: ${nomeSensor}`,
-                    `A porta do ${id} foi detectada como ABERTA!`
-                );
-            } else {
-                elementoPorta.textContent = "🔒 Fechada";
-                elementoPorta.className = "text-sm font-bold text-emerald-600";
-                boxPorta.className = "mt-3 bg-emerald-50 rounded-xl p-3 text-center border border-emerald-200 transition-colors duration-300 flex justify-between items-center px-4";
-            }
-        }
-
-        function verificarAlertaCaixas(id, sensor, tempForcada = null, humForcada = null) {
-            const safeId = escapeAttr(id);
-            const tempEl = document.getElementById(`temp-${safeId}`);
-            const humEl = document.getElementById(`hum-${safeId}`);
-            const boxTemp = document.getElementById(`box-temp-${safeId}`);
-            const boxHum = document.getElementById(`box-hum-${safeId}`);
-            
-            const statusEmailTemp = document.getElementById(`status-email-temp-${safeId}`);
-            const statusEmailHum = document.getElementById(`status-email-hum-${safeId}`);
-
-            let nomeSensor = sensor.nome || id;
-            let emailDestino = sensor.emailAlerta;
-            let intervaloMinutos = sensor.intervaloAlerta !== undefined && sensor.intervaloAlerta !== null ? Number(sensor.intervaloAlerta) : 15;
-            let intervaloMs = intervaloMinutos * 60 * 1000;
-            let agora = Date.now();
-
-            let chavePushTemp = `push_enviado_${id}_temp`;
-            let chavePushHum = `push_enviado_${id}_hum`;
-            let chaveUltimoEmailTemp = `ultimo_envio_${id}_temp`;
-            let chaveUltimoEmailHum = `ultimo_envio_${id}_hum`;
-
-            if (tempEl && boxTemp) {
-                let textoTemp = tempEl.textContent.replace("°C", "").trim();
-                const tempVal = tempForcada !== null ? tempForcada : parseFloat(textoTemp);
-                
-                if (!isNaN(tempVal)) {
-                    const abaixoMin = sensor.tempMin !== undefined && sensor.tempMin !== null && tempVal < sensor.tempMin;
-                    const acimaMax = sensor.tempMax !== undefined && sensor.tempMax !== null && tempVal > sensor.tempMax;
-
-                    if (abaixoMin || acimaMax) {
-                        boxTemp.className = "bg-[#fff1f2] rounded-xl p-3 text-center border border-rose-300 transition-colors duration-300";
-                        
-                        let pushJaEnviado = localStorage.getItem(chavePushTemp) === "true";
-                        if (!pushJaEnviado) {
-                            localStorage.setItem(chavePushTemp, "true");
-                            dispararNotificacaoLocal(
-                                `🚨 Alerta de Temperatura: ${nomeSensor}`,
-                                `O sensor ${id} registrou ${tempVal.toFixed(1)}°C (Fora da faixa!).`
-                            );
-                        }
-
-                        let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailTemp)) || 0;
-                        let proximoPermitido = ultimoTempo + intervaloMs;
-
-                        if (agora - ultimoTempo > intervaloMs) {
-                            localStorage.setItem(chaveUltimoEmailTemp, agora);
-                            dispararEmailAlerta(emailDestino, nomeSensor, "Temperatura Anormal", tempVal.toFixed(1) + "°C");
-                            if (statusEmailTemp) statusEmailTemp.textContent = "✉️ E-mail de alerta enviado agora!";
-                        } else {
-                            let tempoRestanteMs = proximoPermitido - agora;
-                            let minutosRestantes = Math.ceil(tempoRestanteMs / (60 * 1000));
-                            if (statusEmailTemp) {
-                                statusEmailTemp.textContent = `⏳ Próximo e-mail em ~${minutosRestantes} min`;
-                            }
-                        }
-                    } else {
-                        boxTemp.className = "bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300";
-                        localStorage.setItem(chavePushTemp, "false");
-                        
-                        let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailTemp)) || 0;
-                        if (ultimoTempo > 0 && agora - ultimoTempo < intervaloMs) {
-                            let tempoRestanteMs = (ultimoTempo + intervaloMs) - agora;
-                            let minutosRestantes = Math.ceil(tempoRestanteMs / (60 * 1000));
-                            if (statusEmailTemp) {
-                                statusEmailTemp.textContent = `⏳ Bloqueado por mais ~${minutosRestantes} min`;
-                            }
-                        } else {
-                            localStorage.removeItem(chaveUltimoEmailTemp);
-                            if (statusEmailTemp) statusEmailTemp.textContent = "";
-                        }
-                    }
+        function sincronizarListenersOtimizados(sensores) {
+            // Limpa ouvintes antigos descontinuados
+            for (const key in listenersAtivos) {
+                if (!sensores[key]) {
+                    db.ref(listenersAtivos[key].path).off();
+                    delete listenersAtivos[key];
                 }
             }
 
-            if (humEl && boxHum) {
-                let textoHum = humEl.textContent.replace("%", "").trim();
-                const humVal = humForcada !== null ? humForcada : parseFloat(textoHum);
+            // Atribui e escuta novos paths
+            for (const [id, s] of Object.entries(sensores)) {
                 
-                if (!isNaN(humVal)) {
-                    const abaixoMin = sensor.humMin !== undefined && sensor.humMin !== null && humVal < sensor.humMin;
-                    const acimaMax = sensor.humMax !== undefined && sensor.humMax !== null && humVal > sensor.humMax;
+                // Monitoramento Temp
+                if (s.rotaTemp) {
+                    db.ref(s.rotaTemp).on("value", (snap) => {
+                        const val = snap.val();
+                        const el = document.getElementById(`val_temp_${id}`);
+                        if (el) el.innerText = val !== null ? parseFloat(val).toFixed(1) : "--";
+                        verificarLimites(id, s, val, 'temp');
+                    });
+                }
 
-                    if (abaixoMin || acimaMax) {
-                        boxHum.className = "bg-[#fff1f2] rounded-xl p-3 text-center border border-rose-300 transition-colors duration-300";
-                        
-                        let pushJaEnviado = localStorage.getItem(chavePushHum) === "true";
-                        if (!pushJaEnviado) {
-                            localStorage.setItem(chavePushHum, "true");
-                            dispararNotificacaoLocal(
-                                `🚨 Alerta de Umidade: ${nomeSensor}`,
-                                `O sensor ${id} registrou ${humVal.toFixed(1)}% (Fora da faixa!).`
-                            );
-                        }
+                // Monitoramento Umidade
+                if (s.rotaHum) {
+                    db.ref(s.rotaHum).on("value", (snap) => {
+                        const val = snap.val();
+                        const el = document.getElementById(`val_hum_${id}`);
+                        if (el) el.innerText = val !== null ? parseFloat(val).toFixed(1) : "--";
+                        verificarLimites(id, s, val, 'hum');
+                    });
+                }
 
-                        let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailHum)) || 0;
-                        let proximoPermitido = ultimoTempo + intervaloMs;
-
-                        if (agora - ultimoTempo > intervaloMs) {
-                            localStorage.setItem(chaveUltimoEmailHum, agora);
-                            dispararEmailAlerta(emailDestino, nomeSensor, "Umidade Anormal", humVal.toFixed(1) + "%");
-                            if (statusEmailHum) statusEmailHum.textContent = "✉️ E-mail de alerta enviado agora!";
-                        } else {
-                            let tempoRestanteMs = proximoPermitido - agora;
-                            let minutosRestantes = Math.ceil(tempoRestanteMs / (60 * 1000));
-                            if (statusEmailHum) {
-                                statusEmailHum.textContent = `⏳ Próximo e-mail em ~${minutosRestantes} min`;
+                // Monitoramento Timestamp / Visto por Último
+                if (s.rotaLastSeen) {
+                    db.ref(s.rotaLastSeen).on("value", (snap) => {
+                        const val = snap.val();
+                        const el = document.getElementById(`val_last_${id}`);
+                        const statusEl = document.getElementById(`status_${id}`);
+                        if (el && val) {
+                            const date = new Date(val);
+                            el.innerText = date.toLocaleTimeString();
+                            
+                            // Define Online/Offline baseando em 3 minutos
+                            const diff = (new Date() - date) / 1000;
+                            if (diff < 180) {
+                                statusEl.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700";
+                                statusEl.innerText = "Online";
+                            } else {
+                                statusEl.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500";
+                                statusEl.innerText = "Offline";
                             }
                         }
-                    } else {
-                        boxHum.className = "bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300";
-                        localStorage.setItem(chavePushHum, "false");
-                        
-                        let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailHum)) || 0;
-                        if (ultimoTempo > 0 && agora - ultimoTempo < intervaloMs) {
-                            let tempoRestanteMs = (ultimoTempo + intervaloMs) - agora;
-                            let minutosRestantes = Math.ceil(tempoRestanteMs / (60 * 1000));
-                            if (statusEmailHum) {
-                                statusEmailHum.textContent = `⏳ Bloqueado por mais ~${minutosRestantes} min`;
-                            }
-                        } else {
-                            localStorage.removeItem(chaveUltimoEmailHum);
-                            if (statusEmailHum) statusEmailHum.textContent = "";
-                        }
-                    }
+                    });
+                }
+
+                // Monitoramento Especial da Porta
+                if (s.rotaPorta) {
+                    db.ref(s.rotaPorta).on("value", (snap) => {
+                        const val = snap.val();
+                        processarStatusPorta(id, s, val);
+                    });
                 }
             }
         }
 
-        function ouvirRota(rota, callback) {
-            if (!rota) return;
-            const rotaLimpa = normalizarRota(rota);
-            const ref = db.ref(rotaLimpa);
+        function processarStatusPorta(id, sensor, dadosPorta) {
+            const valEl = document.getElementById(`val_porta_${id}`);
+            const iconEl = document.getElementById(`icon_porta_${id}`);
+            const timeEl = document.getElementById(`time_porta_${id}`);
 
-            ref.on("value", snapshot => {
-                const val = snapshot.val();
-                const valorNumerico = Number(val);
-                callback(isNaN(valorNumerico) ? val : valorNumerico);
-            });
+            if (!valEl || dadosPorta === null) return;
 
-            listeners[rotaLimpa] = ref;
-        }
+            let aberta = false;
+            let desde = null;
 
-        function normalizarRota(rota) {
-            if (!rota) return "";
-            rota = String(rota).trim();
-            if (rota.startsWith("/")) rota = rota.substring(1);
-            return rota;
-        }
+            if (typeof dadosPorta === "boolean") {
+                aberta = dadosPorta;
+            } else if (typeof dadosPorta === "object") {
+                aberta = dadosPorta.aberta || dadosPorta.status === "aberta" || dadosPorta.status === true;
+                desde = dadosPorta.desde || dadosPorta.timestamp;
+            } else if (typeof dadosPorta === "string") {
+                aberta = dadosPorta.toLowerCase() === "aberta" || dadosPorta.toLowerCase() === "true";
+            }
 
-        function atualizarOnline(id, timestamp) {
-            if (!Number.isFinite(Number(timestamp))) return;
-            let ts = Number(timestamp);
-            if (ts > 100000000000) ts = Math.floor(ts / 1000);
+            if (aberta) {
+                valEl.className = "text-xs font-bold px-2 py-1 rounded bg-red-100 text-red-600 animate-pulse";
+                valEl.innerText = "ABERTA";
+                iconEl.className = "fa-solid fa-door-open text-red-500 text-lg";
 
-            const segundos = Math.floor(Date.now() / 1000) - ts;
-            const online = segundos >= 0 && segundos < 60;
+                const tempoLimiteMin = sensor.tempoLimitePorta || 5;
+                
+                if (desde) {
+                    const dataInicio = new Date(desde);
+                    const minutosAberta = Math.floor((new Date() - dataInicio) / 60000);
+                    timeEl.innerText = `Aberta há ${minutosAberta} min`;
 
-            const elemento = document.getElementById(`online-${id}`);
-            const hora = document.getElementById(`seen-${id}`);
-
-            if (!elemento) return;
-
-            if (online) {
-                elemento.textContent = "● Online";
-                elemento.className = "text-sm text-emerald-600 font-bold";
+                    if (minutosAberta >= tempoLimiteMin) {
+                        dispararAlertaPortaAberta(id, sensor, minutosAberta);
+                    }
+                } else {
+                    timeEl.innerText = "Tempo indeterminado";
+                }
             } else {
-                elemento.textContent = "● Offline";
-                elemento.className = "text-sm text-rose-600 font-bold";
-            }
-
-            if (hora) {
-                hora.textContent = new Date(ts * 1000).toLocaleTimeString("pt-BR");
+                valEl.className = "text-xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-600";
+                valEl.innerText = "FECHADA";
+                iconEl.className = "fa-solid fa-door-closed text-emerald-500 text-lg";
+                timeEl.innerText = "Segura";
             }
         }
 
-        function abrirModal() {
+        function dispararAlertaPortaAberta(id, sensor, minutosAberta) {
+            const agora = Date.now();
+            const ultimoAlerta = ultimaNotificacaoPorta[id] || 0;
+            const intervaloMs = (sensor.intervaloAlerta || 15) * 60 * 1000;
+
+            if (agora - ultimoAlerta > intervaloMs) {
+                ultimaNotificacaoPorta[id] = agora;
+
+                console.warn(`[ALERTA] Porta do sensor ${sensor.nome || id} está aberta por mais de ${minutosAberta} minutos!`);
+
+                if (sensor.emailAlerta) {
+                    emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+                        to_email: sensor.emailAlerta,
+                        sensor_id: id,
+                        sensor_nome: sensor.nome || id,
+                        mensagem: `Atenção: A porta do sensor ${sensor.nome || id} está ABERTA há mais de ${minutosAberta} minutos (Limite: ${sensor.tempoLimitePorta || 5} min).`
+                    }).then(() => {
+                        console.log(`Email de alerta de porta enviada para ${sensor.emailAlerta}`);
+                    }).catch(err => console.error("Falha ao enviar e-mail via EmailJS:", err));
+                }
+            }
+        }
+
+        function verificarLimites(id, sensor, valor, tipo) {
+            if (valor === null || valor === undefined) return;
+
+            let excedeu = false;
+            let msg = "";
+
+            if (tipo === 'temp') {
+                if (sensor.tempMin !== null && valor < sensor.tempMin) {
+                    excedeu = true;
+                    msg = `Temperatura abaixo do mínimo (${valor}°C < ${sensor.tempMin}°C)`;
+                } else if (sensor.tempMax !== null && valor > sensor.tempMax) {
+                    excedeu = true;
+                    msg = `Temperatura acima do máximo (${valor}°C > ${sensor.tempMax}°C)`;
+                }
+            } else if (tipo === 'hum') {
+                if (sensor.humMin !== null && valor < sensor.humMin) {
+                    excedeu = true;
+                    msg = `Umidade abaixo do mínimo (${valor}% < ${sensor.humMin}%)`;
+                } else if (sensor.humMax !== null && valor > sensor.humMax) {
+                    excedeu = true;
+                    msg = `Umidade acima do máximo (${valor}% > ${sensor.humMax}%)`;
+                }
+            }
+
+            if (excedeu) {
+                const card = document.getElementById(`card_${id}`);
+                if (card) card.classList.add("border-red-500", "pulse-red");
+            }
+        }
+
+        function atualizarEstatisticas(sensores) {
+            const list = Object.values(sensores);
+            document.getElementById("statTotal").innerText = list.length;
+        }
+
+        function filtrarSensores() {
+            const query = document.getElementById("inputBusca").value.toLowerCase();
+            for (const id in todosSensores) {
+                const s = todosSensores[id];
+                const card = document.getElementById(`card_${id}`);
+                if (card) {
+                    const match = id.toLowerCase().includes(query) || (s.nome && s.nome.toLowerCase().includes(query));
+                    card.style.display = match ? "flex" : "none";
+                }
+            }
+        }
+
+        function abrirModalNovo() {
             editando = false;
-            sensorEditando = null;
-            document.getElementById("titulo").textContent = "Novo Sensor";
-            document.querySelector("form").reset();
-            const campoId = document.getElementById("id");
-            campoId.disabled = false;
-            campoId.oninput = sugerirRotas;
+            document.getElementById("formSensor").reset();
+            document.getElementById("id").readOnly = false;
+            document.getElementById("modalTitulo").innerText = "Cadastrar Novo Sensor";
             document.getElementById("modal").classList.remove("hidden");
-        }
-
-        function sugerirRotas() {
-            if (editando) return;
-            const valor = document.getElementById("id").value.trim().toUpperCase();
-            if (!valor) return;
-
-            document.getElementById("rotaTemp").value = `/sensores/${valor}/temp`;
-            document.getElementById("rotaHum").value = `/sensores/${valor}/hum`;
-            document.getElementById("rotaPorta").value = `/sensores/${valor}/porta`;
-            document.getElementById("rotaLastSeen").value = `/sensores/${valor}/last_seen`;
         }
 
         function fecharModal() {
@@ -648,21 +615,14 @@
         }
 
         function editar(id) {
+            editando = true;
             db.ref(`central_sensores/${id}`).once("value").then(snapshot => {
-                if (!snapshot.exists()) {
-                    alert("Sensor não encontrado.");
-                    return;
-                }
-
                 const s = snapshot.val();
-                editando = true;
-                sensorEditando = id;
+                if (!s) return;
 
-                document.getElementById("titulo").textContent = "Painel de Serviço: " + id;
-                const campoId = document.getElementById("id");
-                campoId.value = id;
-                campoId.disabled = true;
-                campoId.oninput = null;
+                document.getElementById("modalTitulo").innerText = `Editar Sensor: ${id}`;
+                document.getElementById("id").value = id;
+                document.getElementById("id").readOnly = true;
 
                 document.getElementById("nome").value = s.nome || "";
                 document.getElementById("cliente").value = s.clientID || "";
@@ -673,10 +633,13 @@
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 document.getElementById("freqRegistro").value = s.freqRegistro || "";
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta || "";
-                document.getElementById("rotaTemp").value = s.rotaTemp || `/sensores/${id}/temp`;
-                document.getElementById("rotaHum").value = s.rotaHum || `/sensores/${id}/hum`;
-                document.getElementById("rotaPorta").value = s.rotaPorta || `/sensores/${id}/porta`;
-                document.getElementById("rotaLastSeen").value = s.rotaLastSeen || `/sensores/${id}/last_seen`;
+                document.getElementById("rotaTemp").value = s.rotaTemp || "";
+                document.getElementById("rotaHum").value = s.rotaHum || "";
+                document.getElementById("rotaLastSeen").value = s.rotaLastSeen || "";
+
+                // Configurações do Monitoramento da Porta
+                document.getElementById("rotaPorta").value = s.rotaPorta || "";
+                document.getElementById("tempoLimitePorta").value = s.tempoLimitePorta || "";
 
                 document.getElementById("modal").classList.remove("hidden");
             }).catch(error => {
@@ -701,8 +664,11 @@
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 rotaTemp: document.getElementById("rotaTemp").value.trim(),
                 rotaHum: document.getElementById("rotaHum").value.trim(),
+                rotaLastSeen: document.getElementById("rotaLastSeen").value.trim(),
+                
+                // Grava parâmetros da Porta
                 rotaPorta: document.getElementById("rotaPorta").value.trim(),
-                rotaLastSeen: document.getElementById("rotaLastSeen").value.trim()
+                tempoLimitePorta: parseInt(document.getElementById("tempoLimitePorta").value) || 5
             };
 
             db.ref(`central_sensores/${id}`).update(dados).then(() => {
@@ -724,9 +690,13 @@
                 alert("Erro ao excluir.");
             });
         }
+
+        function logout() {
+            auth.signOut().then(() => {
+                alert("Sessão encerrada.");
+            });
+        }
     </script>
 </body>
 
 </html>
-
-
