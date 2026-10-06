@@ -23,6 +23,7 @@
             --accent-blue: #007aff;
             --accent-red: #f43f5e;
             --accent-green: #10b981;
+            --accent-orange: #f59e0b;
             --border-color: #e2e8f0;
         }
 
@@ -82,6 +83,28 @@
 
         .btn-secundary { background-color: #e2e8f0; color: var(--text-primary); }
         .btn-primary { background-color: var(--accent-blue); color: white; }
+        .btn-warning { background-color: var(--accent-orange); color: white; }
+
+        /* Abas Principais (Leituras vs Porta) */
+        .main-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .main-tab {
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 8px;
+            background: #e2e8f0;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .main-tab.active {
+            background: var(--accent-blue);
+            color: white;
+        }
 
         .tabs {
             display: flex;
@@ -146,9 +169,29 @@
         .item:last-child { border-bottom: none; }
 
         .item.alerta { background-color: #fff1f2; padding: 12px; border-radius: 8px; margin: 4px 0; }
+        .item.alerta-porta { background-color: #fffbe3; padding: 12px; border-radius: 8px; margin: 4px 0; }
 
         .valor-critico { color: var(--accent-red); font-weight: bold; }
+        .valor-alerta { color: var(--accent-orange); font-weight: bold; }
         .normal { color: var(--accent-green); font-weight: bold; }
+
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .kpi-card h4 { margin: 0; font-size: 0.85rem; color: var(--text-secondary); }
+        .kpi-card p { margin: 5px 0 0 0; font-size: 1.4rem; font-weight: bold; color: var(--accent-blue); }
 
         .erro {
             padding: 20px;
@@ -175,11 +218,33 @@
         </div>
     </div>
 
+    <!-- Navegação entre Visão de Temp/Umid e Visão da Porta -->
+    <div class="main-tabs">
+        <div class="main-tab active" id="tabModoLeituras">Temperatura & Umidade</div>
+        <div class="main-tab" id="tabModoPorta">Histórico da Porta</div>
+    </div>
+
     <div class="tabs" id="tabsGroup">
         <div class="tab active" data-periodo="diario">Hoje</div>
         <div class="tab" data-periodo="semanal">7 Dias</div>
         <div class="tab" data-periodo="mensal">Este Mês</div>
         <div class="tab" data-periodo="anual">Este Ano</div>
+    </div>
+
+    <!-- Indicadores Chave de Desempenho da Porta (exibido apenas no modo porta) -->
+    <div class="kpi-container" id="kpiPortaSection" style="display: none;">
+        <div class="kpi-card">
+            <h4>Total de Aberturas</h4>
+            <p id="kpiTotalAberturas">0</p>
+        </div>
+        <div class="kpi-card">
+            <h4>Maior Tempo Aberta</h4>
+            <p id="kpiMaiorTempo" style="color: var(--accent-red);">0 min</p>
+        </div>
+        <div class="kpi-card">
+            <h4>Tempo Médio Aberta</h4>
+            <p id="kpiTempoMedio">0 min</p>
+        </div>
     </div>
 
     <div class="chart-container">
@@ -195,22 +260,21 @@
 
 <script>
   const firebaseConfig = {
-  apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
-  authDomain: "triangulo-ir.firebaseapp.com",
-  databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
-  projectId: "triangulo-ir",
-  storageBucket: "triangulo-ir.firebasestorage.app",
-  messagingSenderId: "24231298396",
-  appId: "1:24231298396:web:f218f281137628a2fdad99"
+    apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
+    authDomain: "triangulo-ir.firebaseapp.com",
+    databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
+    projectId: "triangulo-ir",
+    storageBucket: "triangulo-ir.firebasestorage.app",
+    messagingSenderId: "24231298396",
+    appId: "1:24231298396:web:f218f281137628a2fdad99"
 };
 
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.database();
-    const auth = firebase.auth(); // Inicializa o serviço de autenticação
+    const auth = firebase.auth();
 
-    // PROTEÇÃO DE AUTH: Redireciona para o login se não houver usuário autenticado
     auth.onAuthStateChanged(user => {
         if (!user) {
             window.location.href = "index.html"; 
@@ -221,8 +285,11 @@
         sensorID: new URLSearchParams(window.location.search).get("id"),
         sensorConfig: null,
         globalData: [],
+        globalPortaData: [],
+        modoAtual: "leituras", // 'leituras' ou 'porta'
+        periodoAtual: "diario",
         chartInstance: null,
-        limites: { tMin: 2, tMax: 8, hMin: 30, hMax: 70 }
+        limites: { tMin: 2, tMax: 8, hMin: 30, hMax: 70, tempoPortaAlertaSegundos: 180 } // 3 min de alerta de porta
     };
 
     let elements = {};
@@ -240,6 +307,12 @@
             btnPdf: document.getElementById("btnPdf"),
             btnVoltar: document.getElementById("btnVoltar"),
             tabsGroup: document.getElementById("tabsGroup"),
+            tabModoLeituras: document.getElementById("tabModoLeituras"),
+            tabModoPorta: document.getElementById("tabModoPorta"),
+            kpiPortaSection: document.getElementById("kpiPortaSection"),
+            kpiTotalAberturas: document.getElementById("kpiTotalAberturas"),
+            kpiMaiorTempo: document.getElementById("kpiMaiorTempo"),
+            kpiTempoMedio: document.getElementById("kpiTempoMedio"),
             chartCtx: document.getElementById("mainChart") ? document.getElementById("mainChart").getContext("2d") : null
         };
 
@@ -260,6 +333,26 @@
         if (elements.btnVoltar) elements.btnVoltar.addEventListener("click", voltarPainel);
         if (elements.btnPdf) elements.btnPdf.addEventListener("click", exportarPDF);
 
+        if (elements.tabModoLeituras) {
+            elements.tabModoLeituras.addEventListener("click", () => {
+                state.modoAtual = "leituras";
+                elements.tabModoLeituras.classList.add("active");
+                elements.tabModoPorta.classList.remove("active");
+                elements.kpiPortaSection.style.display = "none";
+                fetchData(state.periodoAtual);
+            });
+        }
+
+        if (elements.tabModoPorta) {
+            elements.tabModoPorta.addEventListener("click", () => {
+                state.modoAtual = "porta";
+                elements.tabModoPorta.classList.add("active");
+                elements.tabModoLeituras.classList.remove("active");
+                elements.kpiPortaSection.style.display = "grid";
+                fetchDataPorta(state.periodoAtual);
+            });
+        }
+
         if (elements.tabsGroup) {
             elements.tabsGroup.addEventListener("click", (e) => {
                 const target = e.target;
@@ -268,8 +361,12 @@
                 document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
                 target.classList.add("active");
 
-                const periodo = target.getAttribute("data-periodo");
-                fetchData(periodo);
+                state.periodoAtual = target.getAttribute("data-periodo");
+                if (state.modoAtual === "leituras") {
+                    fetchData(state.periodoAtual);
+                } else {
+                    fetchDataPorta(state.periodoAtual);
+                }
             });
         }
     }
@@ -310,6 +407,7 @@
         return { erroTemp, erroHum, temErro: erroTemp || erroHum };
     }
 
+    /* ---- LÓGICA DE HISTÓRICO PADRÃO (TEMPERATURA E UMIDADE) ---- */
     async function fetchData(periodo) {
         elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Sincronizando leituras do sensor...</p>';
         state.globalData = [];
@@ -504,7 +602,204 @@
         });
     }
 
+    /* ---- LÓGICA DE HISTÓRICO DA PORTA ---- */
+    async function fetchDataPorta(periodo) {
+        elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Sincronizando evento de porta...</p>';
+        state.globalPortaData = [];
+
+        if (state.chartInstance) {
+            state.chartInstance.destroy();
+            state.chartInstance = null;
+        }
+
+        try {
+            const agora = new Date();
+            const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+            const seteDiasAtras = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+            // Procura dados de porta do SENSOR ESPECÍFICO no Firebase
+            const portaSnap = await db.ref(`historico_porta/${state.sensorID}`).once("value");
+
+            if (!portaSnap.exists()) {
+                return mostrarSemDadosPorta();
+            }
+
+            const registros = portaSnap.val();
+
+            Object.keys(registros).forEach(key => {
+                const item = registros[key];
+                let tsAbertura = item.tsAbertura || item.timestamp || Number(key);
+                let duracaoSegundos = item.duracaoSegundos || item.duracao || 0;
+
+                if (tsAbertura < 1e11) tsAbertura *= 1000;
+                const dataObj = new Date(tsAbertura);
+
+                if (isNaN(dataObj.getTime())) return;
+
+                const ms = tsAbertura;
+                const ehDiario = periodo === "diario" && ms >= inicioHoje;
+                const ehSemanal = periodo === "semanal" && ms >= seteDiasAtras;
+                const ehMensal = periodo === "mensal" && dataObj.getMonth() === agora.getMonth() && dataObj.getFullYear() === agora.getFullYear();
+                const ehAnual = periodo === "anual" && dataObj.getFullYear() === agora.getFullYear();
+
+                if (ehDiario || ehSemanal || ehMensal || ehAnual) {
+                    state.globalPortaData.push({
+                        ts: tsAbertura,
+                        duracaoSegundos: duracaoSegundos,
+                        duracaoFormatada: formatarSegundos(duracaoSegundos),
+                        impactoTemp: item.impactoTemp || null, // Variação de temperatura observada
+                        data: dataObj.toLocaleDateString("pt-BR"),
+                        hora: dataObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                    });
+                }
+            });
+
+            state.globalPortaData.sort((a, b) => b.ts - a.ts);
+
+            if (!state.globalPortaData.length) return mostrarSemDadosPorta();
+
+            renderUIPorta();
+            renderChartPorta(periodo);
+            atualizarKPIsPorta();
+        } catch (error) {
+            console.error(error);
+            elements.listaHistorico.innerHTML = `
+                <div class="erro"><b>Erro ao carregar histórico da porta.</b><br><br>${escapeHtml(error.message)}</div>
+            `;
+        }
+    }
+
+    function formatarSegundos(s) {
+        if (s < 60) return `${s} seg`;
+        const min = Math.floor(s / 60);
+        const seg = s % 60;
+        return seg > 0 ? `${min} min ${seg} seg` : `${min} min`;
+    }
+
+    function atualizarKPIsPorta() {
+        if (!state.globalPortaData.length) {
+            elements.kpiTotalAberturas.textContent = "0";
+            elements.kpiMaiorTempo.textContent = "0 min";
+            elements.kpiTempoMedio.textContent = "0 min";
+            return;
+        }
+
+        const total = state.globalPortaData.length;
+        const maior = Math.max(...state.globalPortaData.map(d => d.duracaoSegundos));
+        const soma = state.globalPortaData.reduce((acc, d) => acc + d.duracaoSegundos, 0);
+        const medio = Math.round(soma / total);
+
+        elements.kpiTotalAberturas.textContent = total;
+        elements.kpiMaiorTempo.textContent = formatarSegundos(maior);
+        elements.kpiTempoMedio.textContent = formatarSegundos(medio);
+    }
+
+    function renderUIPorta() {
+        elements.listaHistorico.innerHTML = "";
+        let ultimaData = "";
+
+        state.globalPortaData.forEach(d => {
+            if (d.data !== ultimaData) {
+                const divider = document.createElement("div");
+                divider.className = "data-divider";
+                divider.innerHTML = `<span>${d.data}</span>`;
+                elements.listaHistorico.appendChild(divider);
+                ultimaData = d.data;
+            }
+
+            const ehAlerta = d.duracaoSegundos >= state.limites.tempoPortaAlertaSegundos;
+
+            const itemDiv = document.createElement("div");
+            itemDiv.className = `item ${ehAlerta ? "alerta-porta" : ""}`;
+            itemDiv.innerHTML = `
+                <div>
+                    <b>${d.hora}</b><br>
+                    <small style="color:var(--text-secondary)">Abertura Registrada</small>
+                </div>
+                <div style="display:flex; gap:20px; text-align:right">
+                    <div>
+                        <small>TEMPO ABERTA</small><br>
+                        <span class="${ehAlerta ? "valor-alerta" : "normal"}">${d.duracaoFormatada}</span>
+                    </div>
+                    <div>
+                        <small>IMPACTO ESTIMADO</small><br>
+                        <span class="${ehAlerta ? "valor-critico" : ""}">${d.impactoTemp ? `+${d.impactoTemp}°C` : "N/A"}</span>
+                    </div>
+                    <div>
+                        <small>EFICIÊNCIA</small><br>
+                        <span class="${ehAlerta ? "valor-critico" : "normal"}">${ehAlerta ? "PERDA DE REND." : "DENTRO DO PADRÃO"}</span>
+                    </div>
+                </div>
+            `;
+            elements.listaHistorico.appendChild(itemDiv);
+        });
+    }
+
+    function renderChartPorta(periodo) {
+        if (!elements.chartCtx) return;
+
+        const dadosOrdenados = [...state.globalPortaData].sort((a, b) => a.ts - b.ts);
+
+        state.chartInstance = new Chart(elements.chartCtx, {
+            type: "bar",
+            data: {
+                labels: dadosOrdenados.map(d => 
+                    (periodo === "diario" || periodo === "semanal") 
+                        ? `${d.data.split("/")[0]}/${d.data.split("/")[1]} ${d.hora}` 
+                        : d.data
+                ),
+                datasets: [
+                    {
+                        label: "Tempo com Porta Aberta (Minutos)",
+                        data: dadosOrdenados.map(d => (d.duracaoSegundos / 60).toFixed(1)),
+                        backgroundColor: dadosOrdenados.map(d => 
+                            d.duracaoSegundos >= state.limites.tempoPortaAlertaSegundos ? "#f43f5e" : "#007aff"
+                        ),
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "top" },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Tempo: ${context.raw} min (Perda Térmica Esperada)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { autoSkip: true, maxTicksLimit: 8 } },
+                    y: { 
+                        grid: { color: "#f1f5f9" },
+                        title: { display: true, text: "Minutos" }
+                    }
+                }
+            }
+        });
+    }
+
+    function mostrarSemDadosPorta() {
+        elements.kpiTotalAberturas.textContent = "0";
+        elements.kpiMaiorTempo.textContent = "0 min";
+        elements.kpiTempoMedio.textContent = "0 min";
+        elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Nenhum evento de porta aberta registrado para este sensor no período.</p>';
+    }
+
+    /* ---- EXPORTAÇÃO PDF RELATÓRIO AMBOS MODO ---- */
     async function exportarPDF() {
+        if (state.modoAtual === "leituras") {
+            exportarPDFLeituras();
+        } else {
+            exportarPDFPorta();
+        }
+    }
+
+    async function exportarPDFLeituras() {
         if (!state.globalData.length) return alert("Não existem leituras para exportar.");
 
         const jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF || null);
@@ -615,6 +910,108 @@
         elements.btnPdf.innerText = originalText;
     }
 
+    async function exportarPDFPorta() {
+        if (!state.globalPortaData.length) return alert("Não existem registros de porta para exportar.");
+
+        const jsPDF = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF || null);
+        if (!jsPDF) return alert("Biblioteca de PDF não foi carregada.");
+
+        const doc = new jsPDF();
+        const activeTab = document.querySelector(".tab.active").innerText;
+        const originalText = elements.btnPdf.innerText;
+
+        elements.btnPdf.disabled = true;
+
+        const linhasPorPagina = 24;
+        const totalPaginas = Math.max(1, Math.ceil(state.globalPortaData.length / linhasPorPagina));
+
+        const desenharHeader = (pagina) => {
+            doc.setFillColor(245, 158, 11);
+            doc.rect(0, 0, 210, 38, "F");
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("NEWENERGY - EFICIÊNCIA ENERGÉTICA", 15, 16);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text("RELATÓRIO DE TEMPO DE PORTA ABERTA & PERDA TÉRMICA", 15, 23);
+            doc.setFontSize(8);
+            doc.text(`SENSOR: ${state.sensorID} (${elements.sensorLocal.textContent})`, 15, 29);
+            doc.text(`PERÍODO: ${activeTab.toUpperCase()}`, 195, 15, { align: "right" });
+            doc.text(`EMISSÃO: ${new Date().toLocaleDateString("pt-BR")}`, 195, 21, { align: "right" });
+            doc.text(`PÁGINA: ${pagina} / ${totalPaginas}`, 195, 27, { align: "right" });
+
+            doc.setFillColor(254, 243, 199);
+            doc.rect(15, 43, 180, 12, "F");
+            doc.setTextColor(180, 83, 9);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            
+            const maiorTempo = elements.kpiMaiorTempo.textContent;
+            const totalAberturas = elements.kpiTotalAberturas.textContent;
+            doc.text(`RESUMO: Total Aberturas: ${totalAberturas} | Maior Permanência Aberta: ${maiorTempo}`, 20, 50.5);
+        };
+
+        const desenharTabelaHeader = (yPos) => {
+            doc.setFillColor(245, 248, 251);
+            doc.rect(15, yPos - 6, 180, 10, "F");
+            doc.setDrawColor(200, 210, 220);
+            doc.line(15, yPos + 4, 195, yPos + 4);
+            doc.setTextColor(26, 54, 93);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text("DATA / HORA", 20, yPos);
+            doc.text("TEMPO ABERTA", 75, yPos);
+            doc.text("ELEVAÇÃO TEMP.", 125, yPos);
+            doc.text("AVALIAÇÃO", 165, yPos);
+            return yPos + 10;
+        };
+
+        let paginaAtual = 1;
+        desenharHeader(paginaAtual);
+        let y = desenharTabelaHeader(62);
+
+        for (let i = 0; i < state.globalPortaData.length; i++) {
+            const item = state.globalPortaData[i];
+
+            if (y > 280) {
+                doc.addPage();
+                paginaAtual++;
+                desenharHeader(paginaAtual);
+                y = desenharTabelaHeader(62);
+            }
+
+            const ehAlerta = item.duracaoSegundos >= state.limites.tempoPortaAlertaSegundos;
+
+            if (ehAlerta) {
+                doc.setFillColor(254, 242, 242);
+                doc.rect(15, y - 5, 180, 8, "F");
+                doc.setTextColor(225, 29, 72);
+                doc.setFont("helvetica", "bold");
+            } else {
+                doc.setTextColor(51, 65, 85);
+                doc.setFont("helvetica", "normal");
+            }
+
+            doc.setFontSize(8);
+            doc.text(`${item.data} ${item.hora}`, 20, y);
+            doc.text(item.duracaoFormatada, 75, y);
+            doc.text(item.impactoTemp ? `+${item.impactoTemp}°C` : "N/A", 125, y);
+            doc.text(ehAlerta ? "EXCESSO DE TEMPO" : "NORMAL", 165, y);
+
+            y += 8;
+        }
+
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text("NewEnergy - Análise de Eficiência Térmica e Consumo Energético", 105, 292, { align: "center" });
+
+        doc.save(`Relatorio_Porta_NewEnergy_${state.sensorID}.pdf`);
+
+        elements.btnPdf.disabled = false;
+        elements.btnPdf.innerText = originalText;
+    }
+
     function mostrarSemDados() {
         elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Nenhum registro encontrado para este sensor no período selecionado.</p>';
     }
@@ -633,5 +1030,3 @@
 
 </body>
 </html>
-
-
