@@ -16,7 +16,7 @@
 
 <body class="bg-slate-50 font-sans min-h-screen">
 
-    <!-- CABEÇALHO --->
+    <!-- CABEÇALHO -->
     <header class="bg-white border-b p-5 shadow-sm">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="cursor-pointer select-none" id="logoAdmin" title="Clique 5 vezes para opções administrativas">
@@ -104,6 +104,23 @@
                     </div>
                 </div>
 
+                <!-- CONFIGURAÇÃO DA PORTA E BUZZER -->
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <span class="text-xs font-bold text-rose-600 uppercase tracking-wider">Alarme & Sensor da Porta</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500">Tempo Máx. Porta (min)</label>
+                            <input id="tempoMaxPortaAberta" type="number" placeholder="3" class="campo">
+                        </div>
+                        <div class="flex items-center pt-4">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
+                                <input id="buzzerHabilitado" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded">
+                                Buzzer Habilitado
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Mapeamento Firebase</span>
                     <div>
@@ -172,7 +189,6 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
-        const messaging = firebase.messaging();
 
         let editando = false;
         let sensorEditando = null;
@@ -359,10 +375,15 @@
                     </div>
                 </div>
 
-                <!-- BOX DA PORTA -->
+                <!-- BOX DA PORTA & BOTÃO MUTE -->
                 <div id="box-porta-${escapeAttr(id)}" class="mt-3 bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300 flex justify-between items-center px-4">
-                    <span class="text-xs text-slate-500 font-medium">Status da Porta</span>
-                    <div id="porta-${escapeAttr(id)}" class="text-sm font-bold text-slate-700">--</div>
+                    <div>
+                        <span class="text-xs text-slate-500 font-medium">Status da Porta</span>
+                        <div id="porta-${escapeAttr(id)}" class="text-sm font-bold text-slate-700">--</div>
+                    </div>
+                    <button id="btn-mute-${escapeAttr(id)}" onclick="silenciarAlarmeBuzzer('${escapeAttr(id)}')" class="hidden bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                        🔕 Mute
+                    </button>
                 </div>
 
                 <div class="mt-3 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
@@ -423,12 +444,11 @@
             const safeId = escapeAttr(id);
             const elementoPorta = document.getElementById(`porta-${safeId}`);
             const boxPorta = document.getElementById(`box-porta-${safeId}`);
+            const btnMute = document.getElementById(`btn-mute-${safeId}`);
 
             if (!elementoPorta || !boxPorta) return;
 
-            // Aceita 1, true, "1", "aberta", "open" como aberta
             const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta" || String(valor).toLowerCase() === "open";
-
             let nomeSensor = sensor.nome || id;
 
             if (portaAberta) {
@@ -436,6 +456,8 @@
                 elementoPorta.className = "text-sm font-bold text-rose-600";
                 boxPorta.className = "mt-3 bg-[#fff1f2] rounded-xl p-3 text-center border border-rose-300 transition-colors duration-300 flex justify-between items-center px-4";
                 
+                if (btnMute) btnMute.classList.remove("hidden");
+
                 dispararNotificacaoLocal(
                     `🚨 Porta Aberta: ${nomeSensor}`,
                     `A porta do sensor ${id} foi detectada como ABERTA!`
@@ -444,7 +466,19 @@
                 elementoPorta.textContent = "🔒 Fechada";
                 elementoPorta.className = "text-sm font-bold text-emerald-600";
                 boxPorta.className = "mt-3 bg-emerald-50 rounded-xl p-3 text-center border border-emerald-200 transition-colors duration-300 flex justify-between items-center px-4";
+                
+                if (btnMute) btnMute.classList.add("hidden");
             }
+        }
+
+        function silenciarAlarmeBuzzer(id) {
+            db.ref(`central_sensores/${id}`).update({
+                silenciarAlarme: true
+            }).then(() => {
+                alert(`Buzzer do sensor ${id} silenciado temporariamente!`);
+            }).catch(error => {
+                console.error("Erro ao silenciar buzzer:", error);
+            });
         }
 
         function verificarAlertaCaixas(id, sensor, tempForcada = null, humForcada = null) {
@@ -627,6 +661,7 @@
             sensorEditando = null;
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
+            document.getElementById("buzzerHabilitado").checked = true;
             const campoId = document.getElementById("id");
             campoId.disabled = false;
             campoId.oninput = sugerirRotas;
@@ -683,6 +718,8 @@
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 document.getElementById("freqRegistro").value = s.freqRegistro || "";
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta || "";
+                document.getElementById("tempoMaxPortaAberta").value = s.tempoMaxPortaAberta || 3;
+                document.getElementById("buzzerHabilitado").checked = s.buzzerHabilitado !== undefined ? s.buzzerHabilitado : true;
                 document.getElementById("rotaTemp").value = s.rotaTemp || "";
                 document.getElementById("rotaHum").value = s.rotaHum || "";
                 document.getElementById("rotaPorta").value = s.rotaPorta || "";
@@ -709,6 +746,8 @@
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
                 freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 60,
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
+                tempoMaxPortaAberta: parseInt(document.getElementById("tempoMaxPortaAberta").value) || 3,
+                buzzerHabilitado: document.getElementById("buzzerHabilitado").checked,
                 rotaTemp: document.getElementById("rotaTemp").value.trim(),
                 rotaHum: document.getElementById("rotaHum").value.trim(),
                 rotaPorta: document.getElementById("rotaPorta").value.trim(),
