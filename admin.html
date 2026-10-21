@@ -104,6 +104,21 @@
                     </div>
                 </div>
 
+                <!-- CAMPO ADICIONADO: CALIBRAÇÃO & OFFSET -->
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Calibração & Offset (Ajuste Fino)</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500">Offset Temp (°C)</label>
+                            <input id="offsetTemp" type="number" step="0.1" placeholder="0.0" class="campo">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500">Offset Umidade (%)</label>
+                            <input id="offsetHum" type="number" step="0.1" placeholder="0.0" class="campo">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- CONFIGURAÇÃO DA PORTA E BUZZER -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-rose-600 uppercase tracking-wider">Alarme & Sensor da Porta</span>
@@ -471,39 +486,34 @@
             }
         }
 
-       function silenciarAlarmeBuzzer(id) {
-    const refConfig = db.ref(`central_sensores/${id}`);
-    
-    // 1. Lê o estado atual do alarme no Firebase
-    refConfig.child('silenciarAlarme').once('value').then(snapshot => {
-        const estaSilenciado = snapshot.val() === true;
-        const novoEstado = !estaSilenciado; // Inverte: se era true vira false (reativa), se era false vira true (silencia)
+        function silenciarAlarmeBuzzer(id) {
+            const refConfig = db.ref(`central_sensores/${id}`);
+            
+            refConfig.child('silenciarAlarme').once('value').then(snapshot => {
+                const estaSilenciado = snapshot.val() === true;
+                const novoEstado = !estaSilenciado;
 
-        // 2. Grava o novo estado no Firebase
-        return refConfig.update({
-            silenciarAlarme: novoEstado
-        }).then(() => {
-            // 3. Atualiza imediatamente a interface visual do botão
-            const btnMute = document.getElementById(`btn-mute-${id}`);
-            if (btnMute) {
-                if (novoEstado) {
-                    // Estado SILENCIADO (Mute)
-                    btnMute.innerHTML = `🔕 Mute`;
-                    btnMute.className = "bg-slate-500 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
-                    btnMute.title = "Clique para reativar o som do alarme";
-                } else {
-                    // Estado ATIVO / REATIVADO
-                    btnMute.innerHTML = `🔔 Ativo`;
-                    btnMute.className = "bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
-                    btnMute.title = "Clique para silenciar o alarme temporariamente";
-                }
-            }
-            console.log(`Sensor ${id}: Silenciar alarme alterado para ${novoEstado}`);
-        });
-    }).catch(error => {
-        console.error("Erro ao alternar o estado do mute/alarme:", error);
-    });
-}
+                return refConfig.update({
+                    silenciarAlarme: novoEstado
+                }).then(() => {
+                    const btnMute = document.getElementById(`btn-mute-${id}`);
+                    if (btnMute) {
+                        if (novoEstado) {
+                            btnMute.innerHTML = `🔕 Mute`;
+                            btnMute.className = "bg-slate-500 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
+                            btnMute.title = "Clique para reativar o som do alarme";
+                        } else {
+                            btnMute.innerHTML = `🔔 Ativo`;
+                            btnMute.className = "bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
+                            btnMute.title = "Clique para silenciar o alarme temporariamente";
+                        }
+                    }
+                    console.log(`Sensor ${id}: Silenciar alarme alterado para ${novoEstado}`);
+                });
+            }).catch(error => {
+                console.error("Erro ao alternar o estado do mute/alarme:", error);
+            });
+        }
 
         function verificarAlertaCaixas(id, sensor, tempForcada = null, humForcada = null) {
             const safeId = escapeAttr(id);
@@ -686,6 +696,8 @@
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
             document.getElementById("buzzerHabilitado").checked = true;
+            document.getElementById("offsetTemp").value = "0.0";
+            document.getElementById("offsetHum").value = "0.0";
             const campoId = document.getElementById("id");
             campoId.disabled = false;
             campoId.oninput = sugerirRotas;
@@ -742,6 +754,11 @@
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 document.getElementById("freqRegistro").value = s.freqRegistro || "";
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta || "";
+                
+                // CARREGAR OFFSETS EXISTENTES
+                document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
+                document.getElementById("offsetHum").value = (s.offsetHum !== undefined && s.offsetHum !== null) ? s.offsetHum : "0.0";
+
                 document.getElementById("tempoMaxPortaAberta").value = s.tempoMaxPortaAberta || 3;
                 document.getElementById("buzzerHabilitado").checked = s.buzzerHabilitado !== undefined ? s.buzzerHabilitado : true;
                 document.getElementById("rotaTemp").value = s.rotaTemp || "";
@@ -770,6 +787,11 @@
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
                 freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 60,
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
+                
+                // SALVAR OS VALORES DE OFFSET
+                offsetTemp: parseFloat(document.getElementById("offsetTemp").value) || 0.0,
+                offsetHum: parseFloat(document.getElementById("offsetHum").value) || 0.0,
+
                 tempoMaxPortaAberta: parseInt(document.getElementById("tempoMaxPortaAberta").value) || 3,
                 buzzerHabilitado: document.getElementById("buzzerHabilitado").checked,
                 rotaTemp: document.getElementById("rotaTemp").value.trim(),
