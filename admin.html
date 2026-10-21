@@ -104,7 +104,7 @@
                     </div>
                 </div>
 
-                <!-- CAMPO ADICIONADO: CALIBRAÇÃO & OFFSET -->
+                <!-- CALIBRAÇÃO & OFFSET -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Calibração & Offset (Ajuste Fino)</span>
                     <div class="grid grid-cols-2 gap-2">
@@ -698,6 +698,7 @@
             document.getElementById("buzzerHabilitado").checked = true;
             document.getElementById("offsetTemp").value = "0.0";
             document.getElementById("offsetHum").value = "0.0";
+            document.getElementById("tempoMaxPortaAberta").value = "3";
             const campoId = document.getElementById("id");
             campoId.disabled = false;
             campoId.oninput = sugerirRotas;
@@ -759,7 +760,7 @@
                 document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
                 document.getElementById("offsetHum").value = (s.offsetHum !== undefined && s.offsetHum !== null) ? s.offsetHum : "0.0";
 
-                document.getElementById("tempoMaxPortaAberta").value = s.tempoMaxPortaAberta || 3;
+                document.getElementById("tempoMaxPortaAberta").value = s.tempoMaxPortaAberta !== undefined ? s.tempoMaxPortaAberta : 3;
                 document.getElementById("buzzerHabilitado").checked = s.buzzerHabilitado !== undefined ? s.buzzerHabilitado : true;
                 document.getElementById("rotaTemp").value = s.rotaTemp || "";
                 document.getElementById("rotaHum").value = s.rotaHum || "";
