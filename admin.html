@@ -90,7 +90,7 @@
                     </div>
                 </div>
 
-                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE (MINUTOS/HORAS) -->
+                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
                     <div class="grid grid-cols-2 gap-2">
@@ -371,9 +371,16 @@
             const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
 
-            let freqTexto = sensor.freqRegistro || 10;
-            let unidadeTexto = sensor.unidadeFreq || "min";
-            let freqFormatada = `${freqTexto} ${unidadeTexto}${freqTexto > 1 && unidadeTexto === 'min' ? 's' : (freqTexto > 1 && unidadeTexto === 'hora' ? 's' : '')}`;
+            // Exibir frequência de forma inteligente no card
+            let freqSecs = sensor.freqRegistro || 600;
+            let freqFormatada = "";
+            if (sensor.unidadeFreq === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !sensor.unidadeFreq)) {
+                let horas = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
+                freqFormatada = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+            } else {
+                let minutos = freqSecs >= 60 ? freqSecs / 60 : freqSecs;
+                freqFormatada = `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
+            }
 
             card.innerHTML = `
                 <div class="flex justify-between items-start">
@@ -425,7 +432,7 @@
                     <span id="seen-${escapeAttr(id)}" class="text-xs text-slate-500">--</span>
                 </div>
 
-                <!-- ABRIR NA MESMA ABA (SEM TARGET _BLANK) -->
+                <!-- ABRIR NA MESMA ABA -->
                 <a href="historico.html?id=${encodeURIComponent(id)}" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
                     Ver Histórico
                 </a>
@@ -768,8 +775,21 @@
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 
-                document.getElementById("freqRegistro").value = s.freqRegistro !== undefined ? s.freqRegistro : 10;
-                document.getElementById("unidadeFreq").value = s.unidadeFreq || "min";
+                // Conversão inteligente do valor salvo em segundos para exibição correta em min/hora
+                let freqSalva = s.freqRegistro !== undefined ? s.freqRegistro : 600;
+                let unidadeSalva = s.unidadeFreq || "min";
+
+                if (freqSalva >= 3600 && freqSalva % 3600 === 0 && !s.unidadeFreq) {
+                    document.getElementById("freqRegistro").value = freqSalva / 3600;
+                    document.getElementById("unidadeFreq").value = "hora";
+                } else if (freqSalva >= 60 && freqSalva % 60 === 0 && !s.unidadeFreq) {
+                    document.getElementById("freqRegistro").value = freqSalva / 60;
+                    document.getElementById("unidadeFreq").value = "min";
+                } else {
+                    document.getElementById("freqRegistro").value = freqSalva;
+                    document.getElementById("unidadeFreq").value = unidadeSalva;
+                }
+
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
                 
                 document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
@@ -793,6 +813,12 @@
             event.preventDefault();
             const id = document.getElementById("id").value.trim().toUpperCase().replace(/\s+/g, "_");
 
+            let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 10;
+            let unidadeFreq = document.getElementById("unidadeFreq").value;
+            
+            // Converte para segundos para manter compatibilidade total com o ESP32
+            let freqEmSegundos = unidadeFreq === "hora" ? valorFreq * 3600 : valorFreq * 60;
+
             const dados = {
                 nome: document.getElementById("nome").value.trim(),
                 clientID: document.getElementById("cliente").value.trim(),
@@ -802,8 +828,8 @@
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
                 
-                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 10,
-                unidadeFreq: document.getElementById("unidadeFreq").value,
+                freqRegistro: freqEmSegundos,
+                unidadeFreq: unidadeFreq,
                 
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 
