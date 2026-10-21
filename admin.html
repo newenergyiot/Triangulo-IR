@@ -471,23 +471,34 @@
             }
         }
 
-        function silenciarAlarmeBuzzer(id) {
+       function silenciarAlarmeBuzzer(id) {
     const refConfig = db.ref(`central_sensores/${id}`);
     
-    // 1. Lê o estado atual do mute para saber se já está silenciado ou não
+    // 1. Lê o estado atual do alarme no Firebase
     refConfig.child('silenciarAlarme').once('value').then(snapshot => {
         const estaSilenciado = snapshot.val() === true;
-        const novoEstado = !estaSilenciado; // Inverte o estado (se for true vira false, se for false vira true)
+        const novoEstado = !estaSilenciado; // Inverte: se era true vira false (reativa), se era false vira true (silencia)
 
-        // 2. Atualiza no Firebase com o novo estado
+        // 2. Grava o novo estado no Firebase
         return refConfig.update({
             silenciarAlarme: novoEstado
         }).then(() => {
-            if (novoEstado) {
-                console.log(`Buzzer do sensor ${id} silenciado!`);
-            } else {
-                console.log(`Alarme do sensor ${id} reativado!`);
+            // 3. Atualiza imediatamente a interface visual do botão
+            const btnMute = document.getElementById(`btn-mute-${id}`);
+            if (btnMute) {
+                if (novoEstado) {
+                    // Estado SILENCIADO (Mute)
+                    btnMute.innerHTML = `🔕 Mute`;
+                    btnMute.className = "bg-slate-500 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
+                    btnMute.title = "Clique para reativar o som do alarme";
+                } else {
+                    // Estado ATIVO / REATIVADO
+                    btnMute.innerHTML = `🔔 Ativo`;
+                    btnMute.className = "bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
+                    btnMute.title = "Clique para silenciar o alarme temporariamente";
+                }
             }
+            console.log(`Sensor ${id}: Silenciar alarme alterado para ${novoEstado}`);
         });
     }).catch(error => {
         console.error("Erro ao alternar o estado do mute/alarme:", error);
