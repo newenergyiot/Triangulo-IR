@@ -90,15 +90,15 @@
                     </div>
                 </div>
 
-                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE -->
+                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE (MINUTOS / HORAS) -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="text-xs font-bold text-slate-500">Frequência de Leitura</label>
                             <div class="flex gap-2">
-                                <input id="freqRegistro" type="number" min="1" placeholder="10" class="campo w-2/3">
-                                <select id="unidadeFreq" class="campo w-1/3 text-xs">
+                                <input id="freqRegistro" type="number" min="1" placeholder="1" class="campo w-2/3">
+                                <select id="unidadeFreq" class="campo w-1/3 text-xs bg-white">
                                     <option value="min">Minutos</option>
                                     <option value="hora">Horas</option>
                                 </select>
@@ -372,7 +372,7 @@
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
 
             // Exibir frequência de forma inteligente no card
-            let freqSecs = sensor.freqRegistro || 600;
+            let freqSecs = sensor.freqRegistro || 60;
             let freqFormatada = "";
             if (sensor.unidadeFreq === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !sensor.unidadeFreq)) {
                 let horas = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
@@ -715,7 +715,7 @@
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
             document.getElementById("buzzerHabilitado").checked = true;
-            document.getElementById("freqRegistro").value = "10";
+            document.getElementById("freqRegistro").value = "1";
             document.getElementById("unidadeFreq").value = "min";
             document.getElementById("offsetTemp").value = "0.0";
             document.getElementById("offsetHum").value = "0.0";
@@ -775,19 +775,16 @@
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 
-                // Conversão inteligente do valor salvo em segundos para exibição correta em min/hora
-                let freqSalva = s.freqRegistro !== undefined ? s.freqRegistro : 600;
+                // Conversão inteligente corrigida para carregar e exibir limpo em min/hora
+                let freqSecs = s.freqRegistro !== undefined ? s.freqRegistro : 60;
                 let unidadeSalva = s.unidadeFreq || "min";
 
-                if (freqSalva >= 3600 && freqSalva % 3600 === 0 && !s.unidadeFreq) {
-                    document.getElementById("freqRegistro").value = freqSalva / 3600;
+                if (unidadeSalva === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !s.unidadeFreq)) {
+                    document.getElementById("freqRegistro").value = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
                     document.getElementById("unidadeFreq").value = "hora";
-                } else if (freqSalva >= 60 && freqSalva % 60 === 0 && !s.unidadeFreq) {
-                    document.getElementById("freqRegistro").value = freqSalva / 60;
-                    document.getElementById("unidadeFreq").value = "min";
                 } else {
-                    document.getElementById("freqRegistro").value = freqSalva;
-                    document.getElementById("unidadeFreq").value = unidadeSalva;
+                    document.getElementById("freqRegistro").value = freqSecs >= 60 ? freqSecs / 60 : freqSecs;
+                    document.getElementById("unidadeFreq").value = "min";
                 }
 
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
@@ -813,10 +810,10 @@
             event.preventDefault();
             const id = document.getElementById("id").value.trim().toUpperCase().replace(/\s+/g, "_");
 
-            let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 10;
+            let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 1;
             let unidadeFreq = document.getElementById("unidadeFreq").value;
             
-            // Converte para segundos para manter compatibilidade total com o ESP32
+            // Converte corretamente para segundos para manter compatibilidade total com o ESP32
             let freqEmSegundos = unidadeFreq === "hora" ? valorFreq * 3600 : valorFreq * 60;
 
             const dados = {
@@ -828,8 +825,8 @@
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
                 
-                freqRegistro: freqEmSegundos,
-                unidadeFreq: unidadeFreq,
+                freqRegistro: freqEmSegundos, // Salva em segundos para o ESP32
+                unidadeFreq: unidadeFreq,     // Salva a preferência ('min' ou 'hora') para o painel lembrar
                 
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 
