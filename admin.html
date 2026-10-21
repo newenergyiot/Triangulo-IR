@@ -90,7 +90,7 @@
                     </div>
                 </div>
 
-                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE (MINUTOS / HORAS) -->
+                <!-- PARÂMETROS OPERACIONAIS -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
                     <div class="grid grid-cols-2 gap-2">
@@ -371,7 +371,6 @@
             const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
 
-            // Exibir frequência de forma inteligente no card
             let freqSecs = sensor.freqRegistro || 60;
             let freqFormatada = "";
             if (sensor.unidadeFreq === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !sensor.unidadeFreq)) {
@@ -461,11 +460,11 @@
                 });
             }
 
-            if (sensor.rotaPorta) {
-                ouvirRota(sensor.rotaPorta, valor => {
-                    atualizarStatusPorta(id, sensor, valor);
-                });
-            }
+            // ESCUTA EXATA DA ROTA DO ESP32 PARA A PORTA
+            let rotaPortaExata = `sensores/${id}/porta_aberta`;
+            ouvirRota(rotaPortaExata, valor => {
+                atualizarStatusPorta(id, sensor, valor);
+            });
 
             if (sensor.rotaLastSeen) {
                 ouvirRota(sensor.rotaLastSeen, valor => {
@@ -474,7 +473,6 @@
             }
         }
 
-        // FUNÇÃO BLINDADA PARA ATUALIZAR O STATUS DA PORTA INSTANTANEAMENTE
         function atualizarStatusPorta(id, sensor, valor) {
             const safeId = escapeAttr(id);
             const elementoPorta = document.getElementById(`porta-${safeId}`);
@@ -483,7 +481,6 @@
 
             if (!elementoPorta || !boxPorta) return;
 
-            // Aceita booleanos, números ou strings ("true", "1", "aberta", etc.)
             const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "true" || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta";
             let nomeSensor = sensor.nome || id;
 
