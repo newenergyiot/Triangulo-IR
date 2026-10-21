@@ -90,19 +90,22 @@
                     </div>
                 </div>
 
+                <!-- PARÂMETROS OPERACIONAIS COM UNIDADE (MINUTOS/HORAS) -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-xs font-bold text-slate-500">Leitura (seg)</label>
-                            <input id="freqRegistro" type="number" placeholder="60" class="campo">
+                            <label class="text-xs font-bold text-slate-500">Frequência de Leitura</label>
+                            <div class="flex gap-2">
+                                <input id="freqRegistro" type="number" min="1" placeholder="10" class="campo w-2/3">
+                                <select id="unidadeFreq" class="campo w-1/3 text-xs">
+                                    <option value="min">Minutos</option>
+                                    <option value="hora">Horas</option>
+                                </select>
+                            </div>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-500">Reg. Histórico (seg)</label>
-                            <input id="freqHistorico" type="number" placeholder="60" class="campo">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Alerta (min)</label>
+                            <label class="text-xs font-bold text-slate-500">Alerta (minutos)</label>
                             <input id="intervaloAlerta" type="number" placeholder="15" class="campo">
                         </div>
                     </div>
@@ -368,6 +371,10 @@
             const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
 
+            let freqTexto = sensor.freqRegistro || 10;
+            let unidadeTexto = sensor.unidadeFreq || "min";
+            let freqFormatada = `${freqTexto} ${unidadeTexto}${freqTexto > 1 && unidadeTexto === 'min' ? 's' : (freqTexto > 1 && unidadeTexto === 'hora' ? 's' : '')}`;
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
@@ -410,7 +417,7 @@
                 </div>
                 <div class="mt-2 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
                     <span>Faixa Ideal Umid: <strong>${humMin}</strong> a <strong>${humMax}</strong></span>
-                    <span>Envio: <strong>${sensor.freqRegistro || 5}s</strong> | Histórico: <strong>${sensor.freqHistorico || 60}s</strong></span>
+                    <span>Leitura: <strong>${freqFormatada}</strong></span>
                 </div>
 
                 <div class="flex justify-between items-center mt-3 pt-3 border-t">
@@ -418,7 +425,8 @@
                     <span id="seen-${escapeAttr(id)}" class="text-xs text-slate-500">--</span>
                 </div>
 
-                <a href="historico.html?id=${encodeURIComponent(id)}" target="_blank" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
+                <!-- ABRIR NA MESMA ABA (SEM TARGET _BLANK) -->
+                <a href="historico.html?id=${encodeURIComponent(id)}" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
                     Ver Histórico
                 </a>
             `;
@@ -700,8 +708,8 @@
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
             document.getElementById("buzzerHabilitado").checked = true;
-            document.getElementById("freqRegistro").value = "5";
-            document.getElementById("freqHistorico").value = "60";
+            document.getElementById("freqRegistro").value = "10";
+            document.getElementById("unidadeFreq").value = "min";
             document.getElementById("offsetTemp").value = "0.0";
             document.getElementById("offsetHum").value = "0.0";
             document.getElementById("tempoMaxPortaAberta").value = "3";
@@ -759,11 +767,11 @@
                 document.getElementById("humMin").value = s.humMin !== undefined && s.humMin !== null ? s.humMin : "";
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
-                document.getElementById("freqRegistro").value = s.freqRegistro !== undefined ? s.freqRegistro : "";
-                document.getElementById("freqHistorico").value = s.freqHistorico !== undefined ? s.freqHistorico : "";
+                
+                document.getElementById("freqRegistro").value = s.freqRegistro !== undefined ? s.freqRegistro : 10;
+                document.getElementById("unidadeFreq").value = s.unidadeFreq || "min";
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
                 
-                // CARREGAR OFFSETS EXISTENTES
                 document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
                 document.getElementById("offsetHum").value = (s.offsetHum !== undefined && s.offsetHum !== null) ? s.offsetHum : "0.0";
 
@@ -793,11 +801,12 @@
                 humMin: parseFloat(document.getElementById("humMin").value) || null,
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
-                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 5,
-                freqHistorico: parseInt(document.getElementById("freqHistorico").value) || 60,
+                
+                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 10,
+                unidadeFreq: document.getElementById("unidadeFreq").value,
+                
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 
-                // SALVAR OS VALORES DE OFFSET
                 offsetTemp: parseFloat(document.getElementById("offsetTemp").value) || 0.0,
                 offsetHum: parseFloat(document.getElementById("offsetHum").value) || 0.0,
 
