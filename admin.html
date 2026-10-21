@@ -472,14 +472,27 @@
         }
 
         function silenciarAlarmeBuzzer(id) {
-            db.ref(`central_sensores/${id}`).update({
-                silenciarAlarme: true
-            }).then(() => {
-                alert(`Buzzer do sensor ${id} silenciado temporariamente!`);
-            }).catch(error => {
-                console.error("Erro ao silenciar buzzer:", error);
-            });
-        }
+    const refConfig = db.ref(`central_sensores/${id}`);
+    
+    // 1. Lê o estado atual do mute para saber se já está silenciado ou não
+    refConfig.child('silenciarAlarme').once('value').then(snapshot => {
+        const estaSilenciado = snapshot.val() === true;
+        const novoEstado = !estaSilenciado; // Inverte o estado (se for true vira false, se for false vira true)
+
+        // 2. Atualiza no Firebase com o novo estado
+        return refConfig.update({
+            silenciarAlarme: novoEstado
+        }).then(() => {
+            if (novoEstado) {
+                console.log(`Buzzer do sensor ${id} silenciado!`);
+            } else {
+                console.log(`Alarme do sensor ${id} reativado!`);
+            }
+        });
+    }).catch(error => {
+        console.error("Erro ao alternar o estado do mute/alarme:", error);
+    });
+}
 
         function verificarAlertaCaixas(id, sensor, tempForcada = null, humForcada = null) {
             const safeId = escapeAttr(id);
