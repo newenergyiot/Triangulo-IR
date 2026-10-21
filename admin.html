@@ -92,13 +92,17 @@
 
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <div>
-                            <label class="text-xs font-bold text-slate-500">Leitura (segundos)</label>
+                            <label class="text-xs font-bold text-slate-500">Leitura (seg)</label>
                             <input id="freqRegistro" type="number" placeholder="60" class="campo">
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-500">Alerta (minutos)</label>
+                            <label class="text-xs font-bold text-slate-500">Reg. Histórico (seg)</label>
+                            <input id="freqHistorico" type="number" placeholder="60" class="campo">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500">Alerta (min)</label>
                             <input id="intervaloAlerta" type="number" placeholder="15" class="campo">
                         </div>
                     </div>
@@ -406,7 +410,7 @@
                 </div>
                 <div class="mt-2 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
                     <span>Faixa Ideal Umid: <strong>${humMin}</strong> a <strong>${humMax}</strong></span>
-                    <span>Intervalo: <strong>${sensor.freqRegistro || 60}s</strong></span>
+                    <span>Envio: <strong>${sensor.freqRegistro || 5}s</strong> | Histórico: <strong>${sensor.freqHistorico || 60}s</strong></span>
                 </div>
 
                 <div class="flex justify-between items-center mt-3 pt-3 border-t">
@@ -696,6 +700,8 @@
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
             document.getElementById("buzzerHabilitado").checked = true;
+            document.getElementById("freqRegistro").value = "5";
+            document.getElementById("freqHistorico").value = "60";
             document.getElementById("offsetTemp").value = "0.0";
             document.getElementById("offsetHum").value = "0.0";
             document.getElementById("tempoMaxPortaAberta").value = "3";
@@ -753,8 +759,9 @@
                 document.getElementById("humMin").value = s.humMin !== undefined && s.humMin !== null ? s.humMin : "";
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
-                document.getElementById("freqRegistro").value = s.freqRegistro || "";
-                document.getElementById("intervaloAlerta").value = s.intervaloAlerta || "";
+                document.getElementById("freqRegistro").value = s.freqRegistro !== undefined ? s.freqRegistro : "";
+                document.getElementById("freqHistorico").value = s.freqHistorico !== undefined ? s.freqHistorico : "";
+                document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
                 
                 // CARREGAR OFFSETS EXISTENTES
                 document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
@@ -786,7 +793,8 @@
                 humMin: parseFloat(document.getElementById("humMin").value) || null,
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
-                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 60,
+                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 5,
+                freqHistorico: parseInt(document.getElementById("freqHistorico").value) || 60,
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 
                 // SALVAR OS VALORES DE OFFSET
