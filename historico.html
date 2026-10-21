@@ -549,7 +549,7 @@
         return "FECHADA";
     }
 
-    /* HISTÓRICO PRINCIPAL: TEMPERATURA E UMIDADE */
+    /* HISTÓRICO PRINCIPAL: TEMPERATURA E UMIDADE (OTIMIZADO) */
     async function fetchData(periodo) {
         elements.listaHistorico.innerHTML = '<p style="text-align:center;padding:40px">Sincronizando leituras...</p>';
         state.globalData = [];
@@ -563,11 +563,7 @@
             const agora = new Date();
             const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
             const seteDiasAtras = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
-            const [historicoSnap, sensorSnap] = await Promise.all([
-                db.ref(`historico/${state.sensorID}`).once("value"),
-                db.ref(`sensores/${state.sensorID}`).once("value")
-            ]);
+            const dataHojeStr = agora.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
             function varrerEProcessar(obj) {
                 if (!obj || typeof obj !== "object") return;
@@ -594,6 +590,19 @@
                     }
                 });
             }
+
+            // BUSCA OTIMIZADA: Se for "diario", consulta apenas a chave do dia de hoje com limite de 150 itens
+            let historicoRef;
+            if (periodo === "diario") {
+                historicoRef = db.ref(`historico/${state.sensorID}/diario/${dataHojeStr}`).limitToLast(150);
+            } else {
+                historicoRef = db.ref(`historico/${state.sensorID}`).limitToLast(300);
+            }
+
+            const [historicoSnap, sensorSnap] = await Promise.all([
+                historicoRef.once("value"),
+                db.ref(`sensores/${state.sensorID}`).once("value")
+            ]);
 
             if (historicoSnap.exists()) varrerEProcessar(historicoSnap.val());
             if (sensorSnap.exists()) varrerEProcessar(sensorSnap.val());
@@ -741,7 +750,7 @@
         });
     }
 
-    /* LÓGICA E DADOS DA PORTA */
+    /* LÓGICA E DADOS DA PORTA (OTIMIZADO) */
     function atualizarEstadoAtualPorta() {
         const estado = state.portaRealtime || "FECHADA";
         const estaAberta = estado === "ABERTA";
@@ -764,11 +773,6 @@
             const agora = new Date();
             const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
             const seteDiasAtras = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
-            const [historicoSnap, sensorSnap] = await Promise.all([
-                db.ref(`historico/${state.sensorID}`).once("value"),
-                db.ref(`sensores/${state.sensorID}`).once("value")
-            ]);
 
             function varrerPorta(obj) {
                 if (!obj || typeof obj !== "object") return;
@@ -793,8 +797,14 @@
                 });
             }
 
+            // BUSCA OTIMIZADA: Traz prioritariamente a rota dedicada de eventos de porta com limite de 50 registros
+            const [portaEventosSnap, historicoSnap] = await Promise.all([
+                db.ref(`historico/${state.sensorID}/eventos_porta`).limitToLast(50).once("value"),
+                db.ref(`historico/${state.sensorID}`).limitToLast(100).once("value")
+            ]);
+
+            if (portaEventosSnap.exists()) varrerPorta(portaEventosSnap.val());
             if (historicoSnap.exists()) varrerPorta(historicoSnap.val());
-            if (sensorSnap.exists()) varrerPorta(sensorSnap.val());
 
             const mapaUnico = new Map();
             state.globalDataPorta.forEach(item => mapaUnico.set(`${item.ts}_${item.porta}`, item));
@@ -1094,7 +1104,7 @@
             doc.setTextColor(153, 27, 27);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(8);
-            doc.text(`TOTAL ABERTURAS: ${elements.statTotalAberturas.textContent}   |   TEMPO TOTAL ABERTA: ${elements.statTempoTotal.textContent}`, 20, 49.5);
+            doc.text(`TOTAL ABERTURAS: ${elements.statTotalAberturas.textContent}    |    TEMPO TOTAL ABERTA: ${elements.statTempoTotal.textContent}`, 20, 49.5);
         };
 
         const desenharTabelaHeader = (yPos) => {
