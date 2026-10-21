@@ -474,6 +474,7 @@
             }
         }
 
+        // FUNÇÃO BLINDADA PARA ATUALIZAR O STATUS DA PORTA INSTANTANEAMENTE
         function atualizarStatusPorta(id, sensor, valor) {
             const safeId = escapeAttr(id);
             const elementoPorta = document.getElementById(`porta-${safeId}`);
@@ -482,7 +483,8 @@
 
             if (!elementoPorta || !boxPorta) return;
 
-            const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta" || String(valor).toLowerCase() === "open";
+            // Aceita booleanos, números ou strings ("true", "1", "aberta", etc.)
+            const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "true" || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta";
             let nomeSensor = sensor.nome || id;
 
             if (portaAberta) {
@@ -775,7 +777,6 @@
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
                 
-                // Conversão inteligente corrigida para carregar e exibir limpo em min/hora
                 let freqSecs = s.freqRegistro !== undefined ? s.freqRegistro : 60;
                 let unidadeSalva = s.unidadeFreq || "min";
 
@@ -788,7 +789,6 @@
                 }
 
                 document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
-                
                 document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0.0";
                 document.getElementById("offsetHum").value = (s.offsetHum !== undefined && s.offsetHum !== null) ? s.offsetHum : "0.0";
 
@@ -813,7 +813,6 @@
             let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 1;
             let unidadeFreq = document.getElementById("unidadeFreq").value;
             
-            // Converte corretamente para segundos para manter compatibilidade total com o ESP32
             let freqEmSegundos = unidadeFreq === "hora" ? valorFreq * 3600 : valorFreq * 60;
 
             const dados = {
@@ -825,8 +824,8 @@
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
                 
-                freqRegistro: freqEmSegundos, // Salva em segundos para o ESP32
-                unidadeFreq: unidadeFreq,     // Salva a preferência ('min' ou 'hora') para o painel lembrar
+                freqRegistro: freqEmSegundos,
+                unidadeFreq: unidadeFreq,
                 
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
                 
