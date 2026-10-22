@@ -371,13 +371,15 @@
             const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
 
+            // Formatação correta da frequência de leitura baseada no valor armazenado
             let freqSecs = sensor.freqRegistro || 60;
             let freqFormatada = "";
             if (sensor.unidadeFreq === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !sensor.unidadeFreq)) {
                 let horas = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
                 freqFormatada = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
             } else {
-                let minutos = freqSecs >= 60 ? freqSecs / 60 : freqSecs;
+                let minutos = freqSecs >= 60 ? Math.round(freqSecs / 60) : freqSecs;
+                if (minutos < 1) minutos = 1;
                 freqFormatada = `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
             }
 
@@ -431,7 +433,6 @@
                     <span id="seen-${escapeAttr(id)}" class="text-xs text-slate-500">--</span>
                 </div>
 
-                <!-- ABRIR NA MESMA ABA -->
                 <a href="historico.html?id=${encodeURIComponent(id)}" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
                     Ver Histórico
                 </a>
@@ -460,7 +461,6 @@
                 });
             }
 
-            // ESCUTA EXATA DA ROTA DO ESP32 PARA A PORTA
             let rotaPortaExata = `sensores/${id}/porta_aberta`;
             ouvirRota(rotaPortaExata, valor => {
                 atualizarStatusPorta(id, sensor, valor);
@@ -526,7 +526,6 @@
                             btnMute.title = "Clique para silenciar o alarme temporariamente";
                         }
                     }
-                    console.log(`Sensor ${id}: Silenciar alarme alterado para ${novoEstado}`);
                 });
             }).catch(error => {
                 console.error("Erro ao alternar o estado do mute/alarme:", error);
@@ -777,11 +776,14 @@
                 let freqSecs = s.freqRegistro !== undefined ? s.freqRegistro : 60;
                 let unidadeSalva = s.unidadeFreq || "min";
 
+                // Reconversão exata para preencher o input do modal ao editar
                 if (unidadeSalva === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !s.unidadeFreq)) {
                     document.getElementById("freqRegistro").value = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
                     document.getElementById("unidadeFreq").value = "hora";
                 } else {
-                    document.getElementById("freqRegistro").value = freqSecs >= 60 ? freqSecs / 60 : freqSecs;
+                    let minutosCalc = freqSecs >= 60 ? Math.round(freqSecs / 60) : freqSecs;
+                    if (minutosCalc < 1) minutosCalc = 1;
+                    document.getElementById("freqRegistro").value = minutosCalc;
                     document.getElementById("unidadeFreq").value = "min";
                 }
 
@@ -810,6 +812,7 @@
             let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 1;
             let unidadeFreq = document.getElementById("unidadeFreq").value;
             
+            // Grava consistentemente em segundos para que o ESP32 e o histórico leiam sem conflito (ex: 10 min = 600s, 30 min = 1800s, 1 hora = 3600s)
             let freqEmSegundos = unidadeFreq === "hora" ? valorFreq * 3600 : valorFreq * 60;
 
             const dados = {
