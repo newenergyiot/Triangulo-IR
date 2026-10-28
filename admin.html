@@ -16,7 +16,7 @@
 
 <body class="bg-slate-50 font-sans min-h-screen">
 
-    <!-- CABEÇALHO -->
+    <!-- CABEÇALHO --->
     <header class="bg-white border-b p-5 shadow-sm">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="cursor-pointer select-none" id="logoAdmin" title="Clique 5 vezes para opções administrativas">
@@ -90,19 +90,12 @@
                     </div>
                 </div>
 
-                <!-- PARÂMETROS OPERACIONAIS -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Parâmetros Operacionais</span>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-xs font-bold text-slate-500">Frequência de Leitura</label>
-                            <div class="flex gap-2">
-                                <input id="freqRegistro" type="number" min="1" placeholder="60" class="campo w-2/3">
-                                <select id="unidadeFreq" class="campo w-1/3 text-xs bg-white">
-                                    <option value="min">Minutos</option>
-                                    <option value="hora">Horas</option>
-                                </select>
-                            </div>
+                            <label class="text-xs font-bold text-slate-500">Leitura (segundos)</label>
+                            <input id="freqRegistro" type="number" placeholder="60" class="campo">
                         </div>
                         <div>
                             <label class="text-xs font-bold text-slate-500">Alerta (minutos)</label>
@@ -111,39 +104,6 @@
                     </div>
                 </div>
 
-                <!-- CALIBRAÇÃO & OFFSET -->
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Calibração & Offset (Ajuste Fino)</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Offset Temp (°C)</label>
-                            <input id="offsetTemp" type="number" step="0.1" placeholder="0" class="campo">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Offset Umidade (%)</label>
-                            <input id="offsetHum" type="number" step="0.1" placeholder="0" class="campo">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ALARME & SENSOR DA PORTA -->
-                <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="text-xs font-bold text-rose-600 uppercase tracking-wider">Alarme & Sensor da Porta</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-xs font-bold text-slate-500">Tempo Máx. Porta (min)</label>
-                            <input id="tempoMaxPortaAberta" type="number" placeholder="1" class="campo">
-                        </div>
-                        <div class="flex items-center pt-4">
-                            <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
-                                <input id="buzzerHabilitado" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded">
-                                Buzzer Habilitado
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- MAPEAMENTO FIREBASE -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Mapeamento Firebase</span>
                     <div>
@@ -153,10 +113,6 @@
                     <div>
                         <label class="text-xs font-bold text-slate-500">Rota Umidade</label>
                         <input id="rotaHum" required placeholder="/hum" class="campo">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500">Rota Porta</label>
-                        <input id="rotaPorta" placeholder="/porta" class="campo">
                     </div>
                     <div>
                         <label class="text-xs font-bold text-slate-500">Rota Último Contato</label>
@@ -196,10 +152,10 @@
 
     <script>
         (function(){
-            emailjs.init("kD4PCi1Nc4Tw0GD1e");
+            emailjs.init("IHpcp88nTn99ykif9");
         })();
 
-        const firebaseConfig = {
+               const firebaseConfig = {
             apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
             authDomain: "triangulo-ir.firebaseapp.com",
             databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
@@ -209,9 +165,11 @@
             appId: "1:24231298396:web:f218f281137628a2fdad99"
         };
 
+
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
+        const messaging = firebase.messaging();
 
         let editando = false;
         let sensorEditando = null;
@@ -271,7 +229,7 @@
                 data: new Date().toLocaleString("pt-BR")
             };
 
-            emailjs.send('service_v0ldsah', 'template_hnmc8uf', templateParams)
+            emailjs.send('service_5yu2n3g', 'template_ptaj15r', templateParams)
                 .then(response => {
                     console.log('E-mail de alerta enviado com sucesso!', response.status, response.text);
                 }, error => {
@@ -357,7 +315,7 @@
         function criarCard(id, sensor) {
             const container = document.getElementById("sensores");
             let card = document.getElementById(`card-${id}`);
-
+            
             if (card) {
                 verificarAlertaCaixas(id, sensor);
                 return;
@@ -371,17 +329,6 @@
             const tempMax = sensor.tempMax !== undefined && sensor.tempMax !== null ? sensor.tempMax + "°C" : "--";
             const humMin = sensor.humMin !== undefined && sensor.humMin !== null ? sensor.humMin + "%" : "--";
             const humMax = sensor.humMax !== undefined && sensor.humMax !== null ? sensor.humMax + "%" : "--";
-
-            let freqSecs = sensor.freqRegistro || 60;
-            let freqFormatada = "";
-            if (sensor.unidadeFreq === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !sensor.unidadeFreq)) {
-                let horas = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
-                freqFormatada = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
-            } else {
-                let minutos = freqSecs >= 60 ? Math.round(freqSecs / 60) : freqSecs;
-                if (minutos < 1) minutos = 1;
-                freqFormatada = `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
-            }
 
             card.innerHTML = `
                 <div class="flex justify-between items-start">
@@ -409,23 +356,12 @@
                     </div>
                 </div>
 
-                <!-- BOX DA PORTA & BOTÃO MUTE -->
-                <div id="box-porta-${escapeAttr(id)}" class="mt-3 bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300 flex justify-between items-center px-4">
-                    <div>
-                        <span class="text-xs text-slate-500 font-medium">Status da Porta</span>
-                        <div id="porta-${escapeAttr(id)}" class="text-sm font-bold text-slate-700">--</div>
-                    </div>
-                    <button id="btn-mute-${escapeAttr(id)}" onclick="silenciarAlarmeBuzzer('${escapeAttr(id)}')" class="hidden bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
-                        🔕 Mute
-                    </button>
-                </div>
-
                 <div class="mt-3 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
                     <span>Faixa Ideal Temp: <strong>${tempMin}</strong> a <strong>${tempMax}</strong></span>
                 </div>
                 <div class="mt-2 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
                     <span>Faixa Ideal Umid: <strong>${humMin}</strong> a <strong>${humMax}</strong></span>
-                    <span>Leitura: <strong>${freqFormatada}</strong></span>
+                    <span>Intervalo: <strong>${sensor.freqRegistro || 60}s</strong></span>
                 </div>
 
                 <div class="flex justify-between items-center mt-3 pt-3 border-t">
@@ -433,7 +369,7 @@
                     <span id="seen-${escapeAttr(id)}" class="text-xs text-slate-500">--</span>
                 </div>
 
-                <a href="historico.html?id=${encodeURIComponent(id)}" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
+                <a href="historico.html?id=${encodeURIComponent(id)}" target="_blank" class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3 transition">
                     Ver Histórico
                 </a>
             `;
@@ -445,8 +381,8 @@
                 ouvirRota(sensor.rotaTemp, valor => {
                     const elemento = document.getElementById(`temp-${id}`);
                     if (elemento && Number.isFinite(valor)) {
-                        elemento.textContent = valor.toFixed(1) + " °C";
-                        verificarAlertaCaixas(id, sensor, valor, null);
+                         elemento.textContent = valor.toFixed(1) + " °C";
+                         verificarAlertaCaixas(id, sensor, valor, null);
                     }
                 });
             }
@@ -461,75 +397,11 @@
                 });
             }
 
-            let rotaPortaExata = `sensores/${id}/porta_aberta`;
-            ouvirRota(rotaPortaExata, valor => {
-                atualizarStatusPorta(id, sensor, valor);
-            });
-
             if (sensor.rotaLastSeen) {
                 ouvirRota(sensor.rotaLastSeen, valor => {
-                    atualizarOnline(id, valor);
+                   atualizarOnline(id, valor);
                 });
             }
-        }
-
-        function atualizarStatusPorta(id, sensor, valor) {
-            const safeId = escapeAttr(id);
-            const elementoPorta = document.getElementById(`porta-${safeId}`);
-            const boxPorta = document.getElementById(`box-porta-${safeId}`);
-            const btnMute = document.getElementById(`btn-mute-${safeId}`);
-
-            if (!elementoPorta || !boxPorta) return;
-
-            const portaAberta = valor === 1 || valor === true || String(valor).toLowerCase() === "true" || String(valor).toLowerCase() === "1" || String(valor).toLowerCase() === "aberta";
-            let nomeSensor = sensor.nome || id;
-
-            if (portaAberta) {
-                elementoPorta.textContent = "🚪 ABERTA";
-                elementoPorta.className = "text-sm font-bold text-rose-600";
-                boxPorta.className = "mt-3 bg-[#fff1f2] rounded-xl p-3 text-center border border-rose-300 transition-colors duration-300 flex justify-between items-center px-4";
-                
-                if (btnMute) btnMute.classList.remove("hidden");
-
-                dispararNotificacaoLocal(
-                    `🚨 Porta Aberta: ${nomeSensor}`,
-                    `A porta do sensor ${id} foi detectada como ABERTA!`
-                );
-            } else {
-                elementoPorta.textContent = "🔒 Fechada";
-                elementoPorta.className = "text-sm font-bold text-emerald-600";
-                boxPorta.className = "mt-3 bg-emerald-50 rounded-xl p-3 text-center border border-emerald-200 transition-colors duration-300 flex justify-between items-center px-4";
-                
-                if (btnMute) btnMute.classList.add("hidden");
-            }
-        }
-
-        function silenciarAlarmeBuzzer(id) {
-            const refConfig = db.ref(`central_sensores/${id}`);
-            
-            refConfig.child('silenciarAlarme').once('value').then(snapshot => {
-                const estaSilenciado = snapshot.val() === true;
-                const novoEstado = !estaSilenciado;
-
-                return refConfig.update({
-                    silenciarAlarme: novoEstado
-                }).then(() => {
-                    const btnMute = document.getElementById(`btn-mute-${id}`);
-                    if (btnMute) {
-                        if (novoEstado) {
-                            btnMute.innerHTML = `🔕 Mute`;
-                            btnMute.className = "bg-slate-500 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
-                            btnMute.title = "Clique para reativar o som do alarme";
-                        } else {
-                            btnMute.innerHTML = `🔔 Ativo`;
-                            btnMute.className = "bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1";
-                            btnMute.title = "Clique para silenciar o alarme temporariamente";
-                        }
-                    }
-                });
-            }).catch(error => {
-                console.error("Erro ao alternar o estado do mute/alarme:", error);
-            });
         }
 
         function verificarAlertaCaixas(id, sensor, tempForcada = null, humForcada = null) {
@@ -591,6 +463,8 @@
                         boxTemp.className = "bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300";
                         localStorage.setItem(chavePushTemp, "false");
                         
+                        // CORREÇÃO: Não removemos mais o 'chaveUltimoEmailTemp' quando o valor volta ao normal.
+                        // O temporizador continua correndo para impedir novos disparos se oscilar de novo antes do tempo acabar.
                         let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailTemp)) || 0;
                         if (ultimoTempo > 0 && agora - ultimoTempo < intervaloMs) {
                             let tempoRestanteMs = (ultimoTempo + intervaloMs) - agora;
@@ -644,6 +518,7 @@
                         boxHum.className = "bg-slate-50 rounded-xl p-3 text-center border border-slate-100 transition-colors duration-300";
                         localStorage.setItem(chavePushHum, "false");
                         
+                        // CORREÇÃO: Mantém o bloqueio do temporizador mesmo se a umidade voltar ao normal.
                         let ultimoTempo = parseInt(localStorage.getItem(chaveUltimoEmailHum)) || 0;
                         if (ultimoTempo > 0 && agora - ultimoTempo < intervaloMs) {
                             let tempoRestanteMs = (ultimoTempo + intervaloMs) - agora;
@@ -666,9 +541,8 @@
             const ref = db.ref(rotaLimpa);
 
             ref.on("value", snapshot => {
-                const val = snapshot.val();
-                const valorNumerico = Number(val);
-                callback(isNaN(valorNumerico) ? val : valorNumerico);
+                const valor = Number(snapshot.val());
+                callback(valor);
             });
 
             listeners[rotaLimpa] = ref;
@@ -682,42 +556,55 @@
         }
 
         function atualizarOnline(id, timestamp) {
-            if (!Number.isFinite(Number(timestamp))) return;
-            let ts = Number(timestamp);
-            if (ts > 100000000000) ts = Math.floor(ts / 1000);
+    if (!Number.isFinite(Number(timestamp))) return;
+    let ts = Number(timestamp);
+    
+    // Converte milissegundos para segundos se necessário
+    if (ts > 100000000000) ts = Math.floor(ts / 1000);
 
-            const segundos = Math.floor(Date.now() / 1000) - ts;
-            const online = segundos >= 0 && segundos < 60;
+    const agoraSegundos = Math.floor(Date.now() / 1000);
+    const segundosDiferenca = agoraSegundos - ts;
 
-            const elemento = document.getElementById(`online-${id}`);
-            const hora = document.getElementById(`seen-${id}`);
+    const elemento = document.getElementById(`online-${id}`);
+    const hora = document.getElementById(`seen-${id}`);
 
-            if (!elemento) return;
+    if (!elemento) return;
 
-            if (online) {
-                elemento.textContent = "● Online";
-                elemento.className = "text-sm text-emerald-600 font-bold";
-            } else {
-                elemento.textContent = "● Offline";
-                elemento.className = "text-sm text-rose-600 font-bold";
-            }
+    // TOLERÂNCIA AJUSTADA: 75 segundos (60s do envio do ESP32 + 15s de margem de rede móvel)
+    const estaOnline = segundosDiferenca >= -10 && segundosDiferenca <= 75;
 
-            if (hora) {
-                hora.textContent = new Date(ts * 1000).toLocaleTimeString("pt-BR");
-            }
+    if (estaOnline) {
+        elemento.textContent = "● Online";
+        elemento.className = "text-sm text-emerald-600 font-bold";
+    } else {
+        elemento.textContent = "● Offline";
+        elemento.className = "text-sm text-rose-600 font-bold";
+    }
+
+    if (hora) {
+        hora.textContent = new Date(ts * 1000).toLocaleTimeString("pt-BR");
+    }
+}
+
+// ATUALIZAÇÃO EM TEMPO REAL: Checa os status a cada 5 segundos na tela
+setInterval(() => {
+    Object.keys(listeners).forEach(rota => {
+        if (rota.includes("last_seen")) {
+            db.ref(rota).once("value", snapshot => {
+                const ts = snapshot.val();
+                // Extrai o ID do sensor a partir da rota
+                const sensorID = rota.replace("last_seen", "").replace("/", "") || "SENSOR_01";
+                if (ts) atualizarOnline(sensorID, ts);
+            });
         }
+    });
+}, 5000);
 
         function abrirModal() {
             editando = false;
             sensorEditando = null;
             document.getElementById("titulo").textContent = "Novo Sensor";
             document.querySelector("form").reset();
-            document.getElementById("buzzerHabilitado").checked = true;
-            document.getElementById("freqRegistro").value = "60";
-            document.getElementById("unidadeFreq").value = "min";
-            document.getElementById("offsetTemp").value = "0";
-            document.getElementById("offsetHum").value = "0";
-            document.getElementById("tempoMaxPortaAberta").value = "1";
             const campoId = document.getElementById("id");
             campoId.disabled = false;
             campoId.oninput = sugerirRotas;
@@ -734,12 +621,10 @@
             if (numero === 1) {
                 document.getElementById("rotaTemp").value = "/temp";
                 document.getElementById("rotaHum").value = "/hum";
-                document.getElementById("rotaPorta").value = "/porta";
                 document.getElementById("rotaLastSeen").value = "/last_seen";
             } else {
                 document.getElementById("rotaTemp").value = `/temp${numero}`;
                 document.getElementById("rotaHum").value = `/hum${numero}`;
-                document.getElementById("rotaPorta").value = `/porta${numero}`;
                 document.getElementById("rotaLastSeen").value = `/last_seen${numero}`;
             }
         }
@@ -772,29 +657,10 @@
                 document.getElementById("humMin").value = s.humMin !== undefined && s.humMin !== null ? s.humMin : "";
                 document.getElementById("humMax").value = s.humMax !== undefined && s.humMax !== null ? s.humMax : "";
                 document.getElementById("emailAlerta").value = s.emailAlerta || "";
-                
-                let freqSecs = s.freqRegistro !== undefined ? s.freqRegistro : 60;
-                let unidadeSalva = s.unidadeFreq || "min";
-
-                if (unidadeSalva === "hora" || (freqSecs >= 3600 && freqSecs % 3600 === 0 && !s.unidadeFreq)) {
-                    document.getElementById("freqRegistro").value = freqSecs >= 3600 ? freqSecs / 3600 : freqSecs;
-                    document.getElementById("unidadeFreq").value = "hora";
-                } else {
-                    let minutosCalc = freqSecs >= 60 ? Math.round(freqSecs / 60) : freqSecs;
-                    if (minutosCalc < 1) minutosCalc = 1;
-                    document.getElementById("freqRegistro").value = minutosCalc;
-                    document.getElementById("unidadeFreq").value = "min";
-                }
-
-                document.getElementById("intervaloAlerta").value = s.intervaloAlerta !== undefined ? s.intervaloAlerta : "";
-                document.getElementById("offsetTemp").value = (s.offsetTemp !== undefined && s.offsetTemp !== null) ? s.offsetTemp : "0";
-                document.getElementById("offsetHum").value = (s.offsetHum !== undefined && s.offsetHum !== null) ? s.offsetHum : "0";
-
-                document.getElementById("tempoMaxPortaAberta").value = s.tempoMaxPortaAberta !== undefined ? s.tempoMaxPortaAberta : 1;
-                document.getElementById("buzzerHabilitado").checked = s.buzzerHabilitado !== undefined ? s.buzzerHabilitado : true;
+                document.getElementById("freqRegistro").value = s.freqRegistro || "";
+                document.getElementById("intervaloAlerta").value = s.intervaloAlerta || "";
                 document.getElementById("rotaTemp").value = s.rotaTemp || "";
                 document.getElementById("rotaHum").value = s.rotaHum || "";
-                document.getElementById("rotaPorta").value = s.rotaPorta || "";
                 document.getElementById("rotaLastSeen").value = s.rotaLastSeen || "";
 
                 document.getElementById("modal").classList.remove("hidden");
@@ -808,10 +674,6 @@
             event.preventDefault();
             const id = document.getElementById("id").value.trim().toUpperCase().replace(/\s+/g, "_");
 
-            let valorFreq = parseInt(document.getElementById("freqRegistro").value) || 60;
-            let unidadeFreq = document.getElementById("unidadeFreq").value;
-            let freqEmSegundos = unidadeFreq === "hora" ? valorFreq * 3600 : valorFreq * 60;
-
             const dados = {
                 nome: document.getElementById("nome").value.trim(),
                 clientID: document.getElementById("cliente").value.trim(),
@@ -820,16 +682,10 @@
                 humMin: parseFloat(document.getElementById("humMin").value) || null,
                 humMax: parseFloat(document.getElementById("humMax").value) || null,
                 emailAlerta: document.getElementById("emailAlerta").value.trim(),
-                freqRegistro: freqEmSegundos,
-                unidadeFreq: unidadeFreq,
+                freqRegistro: parseInt(document.getElementById("freqRegistro").value) || 60,
                 intervaloAlerta: parseInt(document.getElementById("intervaloAlerta").value) || 15,
-                offsetTemp: parseFloat(document.getElementById("offsetTemp").value) || 0,
-                offsetHum: parseFloat(document.getElementById("offsetHum").value) || 0,
-                tempoMaxPortaAberta: parseInt(document.getElementById("tempoMaxPortaAberta").value) || 1,
-                buzzerHabilitado: document.getElementById("buzzerHabilitado").checked,
                 rotaTemp: document.getElementById("rotaTemp").value.trim(),
                 rotaHum: document.getElementById("rotaHum").value.trim(),
-                rotaPorta: document.getElementById("rotaPorta").value.trim(),
                 rotaLastSeen: document.getElementById("rotaLastSeen").value.trim()
             };
 
