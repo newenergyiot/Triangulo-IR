@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -567,8 +566,6 @@ function normalizarTimestamp(valor) {
         return null;
     }
 
-    // O firmware pode gravar epoch em segundos.
-    // Navegadores trabalham com milissegundos.
     if (timestamp < 1e11) {
         timestamp *= 1000;
     }
@@ -711,112 +708,103 @@ async function fetchData(periodo) {
         const agora = new Date();
         const dataHojeStr = dataLocalISO(agora);
 
-        function varrerEProcessar(obj, chaveAtual = null) {
+        let historicoRef;
+
+        if (periodo === "diario") {
+            historicoRef = db.ref(`historico/${state.sensorID}/diario/${dataHojeStr}`);
+        } else {
+            historicoRef = db.ref(`historico/${state.sensorID}/diario`);
+        }
+
+        const snapshot = await historicoRef.once("value");
+
+        if (!snapshot.exists()) {
+            return mostrarSemDados();
+        }
+
+        const base = snapshot.val();
+
+        function varrerEProcessar(obj) {
             if (!obj || typeof obj !== "object") return;
 
-            const temTemperatura =
-                obj.temp !== undefined || obj.t !== undefined;
+            if (obj.temp !== undefined || obj.hum !== undefined || obj.t !== undefined) {
+                const temperatura = obj.temp !== undefined ? Number(obj.temp) : Number(obj.t);
+                const umidade = obj.hum !== undefined ? Number(obj.hum) : Number(obj.h);
+                
+                if (!Number.isFinite(temperatura) || !Number.isFinite(umidade)) return;
 
-            const temUmidade =
-                obj.hum !== undefined || obj.h !== undefined;
+                let ts = Number(obj.timestamp || obj.ts);
+                if (!Number.isFinite(ts) || ts <= 0) return;
+                
+                if (ts < 1e11) ts = ts * 1000;
 
-            if (temTemperatura || temUmidade) {
-                const temperatura = obj.temp !== undefined ? obj.temp : obj.t;
-                const umidade = obj.hum !== undefined ? obj.hum : obj.h;
+                const dataObj = new Date(ts);
+                if (isNaN(dataObj.getTime())) return;
 
-                const ts = obj.timestamp || obj.ts || obj.last_seen || chaveAtual;
+                const formatado = formatarDataHora(ts, false);
 
-                processarRegistro(
-                    ts,
-                    { temp: temperatura, hum: umidade },
-                    periodo,
-                    agora
-                );
+                state.globalData.push({
+                    ts: ts,
+                    temp: temperatura,
+                    hum: umidade,
+                    data: formatado.data,
+                    hora: formatado.hora
+                });
                 return;
             }
 
             Object.keys(obj).forEach(chave => {
-                const item = obj[chave];
-
-                if (item && typeof item === "object") {
-                    varrerEProcessar(item, chave);
+                const subItem = obj[chave];
+                if (subItem && typeof subItem === "object") {
+                    varrerEProcessar(subItem);
+                } else if (subItem !== null && typeof subItem !== "object") {
+                    const potentialTs = Number(chave);
+                    if (Number.isFinite(potentialTs) && potentialTs > 1000000) {
+                        if (subItem.temp !== undefined || subItem.hum !== undefined) {
+                            let ts = potentialTs < 1e11 ? potentialTs * 1000 : potentialTs;
+                            const dataObj = new Date(ts);
+                            if (!isNaN(dataObj.getTime())) {
+                                const formatado = formatarDataHora(ts, false);
+                                state.globalData.push({
+                                    ts: ts,
+                                    temp: Number(subItem.temp),
+                                    hum: Number(subItem.hum),
+                                    data: formatado.data,
+                                    hora: formatado.hora
+                                });
+                            }
+                        }
+                    }
                 }
             });
         }
 
-        let historicoRef;
-
-        if (periodo === "diario") {
-            historicoRef = db.ref(
-                `historico/${state.sensorID}/diario/${dataHojeStr}`
-            ).limitToLast(500);
+        if (periodo !== "diario") {
+            Object.keys(base).forEach(dataChave => {
+                varrerEProcessar(base[dataChave]);
+            });
         } else {
-            historicoRef = db.ref(`historico/${state.sensorID}`).limitToLast(1000);
+            varrerEProcessar(base);
         }
 
-        const [historicoSnap, sensorSnap] = await Promise.all([
-            historicoRef.once("value"),
-            db.ref(`sensores/${state.sensorID}`).once("value")
-        ]);
-
-        if (historicoSnap.exists()) {
-            varrerEProcessar(historicoSnap.val());
-        }
-
-        if (sensorSnap.exists()) {
-            varrerEProcessar(sensorSnap.val());
-        }
-
-        const unicos = new Map();
-
+        const mapaUnico = new Map();
         state.globalData.forEach(item => {
-            unicos.set(`${item.ts}_${item.temp}_${item.hum}`, item);
+            mapaUnico.set(`${item.ts}_${item.temp}_${item.hum}`, item);
         });
 
-        state.globalData = [...unicos.values()].sort((a, b) => b.ts - a.ts);
+        state.globalData = [...mapaUnico.values()].sort((a, b) => b.ts - a.ts);
 
         if (!state.globalData.length) {
-            mostrarSemDados();
-            return;
+            return mostrarSemDados();
         }
 
         renderUI();
         renderChart(periodo);
     } catch (error) {
         console.error("Erro ao carregar histórico:", error);
-
         elements.listaHistorico.innerHTML =
             `<div class="erro"><b>Erro ao carregar histórico.</b><br><br>${escapeHtml(error.message)}</div>`;
     }
-}
-
-function processarRegistro(keyOrTs, registro, periodo, agora) {
-    if (!registro || typeof registro !== "object") return;
-
-    let timestamp = normalizarTimestamp(keyOrTs);
-
-    if (!timestamp) {
-        timestamp = normalizarTimestamp(
-            registro.timestamp || registro.ts || registro.last_seen
-        );
-    }
-
-    if (!timestamp || !estaNoPeriodo(timestamp, periodo, agora)) return;
-
-    const temp = Number(registro.temp);
-    const hum = Number(registro.hum);
-
-    if (!Number.isFinite(temp) || !Number.isFinite(hum)) return;
-
-    const formatado = formatarDataHora(timestamp, false);
-
-    state.globalData.push({
-        ts: timestamp,
-        temp,
-        hum,
-        data: formatado.data,
-        hora: formatado.hora
-    });
 }
 
 function renderUI() {
@@ -963,7 +951,6 @@ function ouvirPortaRealtime() {
 
         const dados = snapshot.val();
 
-        // Atualiza o estado atual apenas quando o campo da porta existe.
         const temCampoPorta =
             dados.porta_aberta !== undefined ||
             dados.porta !== undefined ||
@@ -992,20 +979,7 @@ function atualizarEstadoAtualPorta() {
 }
 
 /* =========================================================
-   HISTÓRICO DA PORTA - CORREÇÃO PRINCIPAL
-   =========================================================
-
-   O firmware pode gravar um evento assim:
-
-   historico/SENSOR_01/eventos_porta/CHAVE
-       duracao_segs: 120
-       timestamp: 1790000000
-
-   Nesse formato, timestamp representa o fechamento.
-   A abertura é calculada por timestamp - duracao_segs.
-
-   Também são aceitos registros antigos que contêm apenas
-   porta_aberta, porta, p ou door.
+   HISTÓRICO DA PORTA
    ========================================================= */
 
 async function fetchDataPorta(periodo) {
@@ -1031,10 +1005,6 @@ async function fetchDataPorta(periodo) {
         const estados = [];
         const eventosDiretos = [];
 
-        /*
-         * Lê eventos gravados no caminho específico de eventos_porta.
-         * O caminho do registro pode ser epoch em segundos.
-         */
         if (eventosSnap.exists()) {
             const dadosEventos = eventosSnap.val();
 
@@ -1056,8 +1026,6 @@ async function fetchDataPorta(periodo) {
 
                     const abertura = fechamento - duracaoSegs * 1000;
 
-                    // Se qualquer parte do evento cair no período,
-                    // mostramos o evento completo.
                     const aberturaNoPeriodo =
                         estaNoPeriodo(abertura, periodo, agora);
 
@@ -1077,7 +1045,6 @@ async function fetchDataPorta(periodo) {
                     return;
                 }
 
-                // Compatibilidade com registros antigos no formato de estado.
                 const temEstado =
                     evento.porta !== undefined ||
                     evento.porta_aberta !== undefined ||
@@ -1099,14 +1066,9 @@ async function fetchDataPorta(periodo) {
             });
         }
 
-        /*
-         * Varre o histórico geral para encontrar estados antigos da porta.
-         * Também ignora objetos de temperatura e umidade.
-         */
         function varrerHistorico(obj, chaveAtual = null) {
             if (!obj || typeof obj !== "object") return;
 
-            // Evita interpretar o evento completo como estado.
             if (
                 obj.duracao_segs !== undefined &&
                 obj.timestamp !== undefined
@@ -1148,10 +1110,6 @@ async function fetchDataPorta(periodo) {
             varrerHistorico(historicoSnap.val());
         }
 
-        /*
-         * Inclui o estado atual como referência, caso não exista
-         * um registro recente no histórico.
-         */
         if (sensorSnap.exists()) {
             const sensor = sensorSnap.val();
             const temEstado =
@@ -1162,16 +1120,10 @@ async function fetchDataPorta(periodo) {
 
             if (temEstado) {
                 const estado = extrairEstadoPorta(sensor);
-
-                // Não inventamos um horário histórico para o estado atual.
-                // O estado atual é mostrado no cartão, separado do histórico.
                 state.portaRealtime = estado;
             }
         }
 
-        /*
-         * Remove duplicações de estados encontradas em mais de um caminho.
-         */
         const estadosUnicos = new Map();
 
         estados.forEach(registro => {
@@ -1181,9 +1133,6 @@ async function fetchDataPorta(periodo) {
         const estadosOrdenados = [...estadosUnicos.values()]
             .sort((a, b) => a.ts - b.ts);
 
-        /*
-         * Reconstrói aberturas e fechamentos dos registros antigos.
-         */
         const eventosLegados = [];
         let inicioAbertura = null;
 
@@ -1208,10 +1157,6 @@ async function fetchDataPorta(periodo) {
             }
         });
 
-        /*
-         * Se há uma abertura sem fechamento registrado, exibe como aberta.
-         * O tempo continua sendo calculado até o momento atual.
-         */
         if (inicioAbertura !== null) {
             eventosLegados.push({
                 inicio: inicioAbertura,
@@ -1222,11 +1167,6 @@ async function fetchDataPorta(periodo) {
             });
         }
 
-        /*
-         * Junta os dois formatos.
-         * Quando há um evento direto e um evento legado com os mesmos
-         * horários, mantém apenas um registro.
-         */
         const todosEventos = [...eventosDiretos, ...eventosLegados];
         const eventosUnicos = new Map();
 
@@ -1236,21 +1176,15 @@ async function fetchDataPorta(periodo) {
             if (!eventosUnicos.has(chave)) {
                 eventosUnicos.set(chave, evento);
             } else {
-                // Prefere o evento direto gravado em eventos_porta.
                 if (evento.origem === "evento") {
                     eventosUnicos.set(chave, evento);
                 }
             }
         });
 
-        /*
-         * Mantém somente um evento por horário de abertura.
-         * Isso também evita duplicação quando o firmware grava
-         * tanto o estado quanto o evento completo.
-         */
         const porAbertura = new Map();
 
-        [...eventosUnicos.values()].forEach(evento => {
+        ([...eventosUnicos.values()]).forEach(evento => {
             const chave = String(evento.inicio);
             const existente = porAbertura.get(chave);
 
@@ -1278,10 +1212,6 @@ async function fetchDataPorta(periodo) {
                 };
             });
 
-        /*
-         * Calcula o resumo apenas com eventos cuja abertura ou fechamento
-         * pertence ao período selecionado. Eventos abertos são atualizados.
-         */
         let tempoTotal = 0;
 
         state.eventosPortaCalculados.forEach(evento => {
