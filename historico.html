@@ -690,7 +690,7 @@ async function carregarSensorESuasConfiguracoes() {
 }
 
 /* =========================================================
-   HISTÓRICO DE TEMPERATURA E UMIDADE
+   HISTÓRICO DE TEMPERATURA E UMIDADE (OTIMIZADO & GRATUITO)
    ========================================================= */
 
 async function fetchData(periodo) {
@@ -708,15 +708,19 @@ async function fetchData(periodo) {
         const agora = new Date();
         const dataHojeStr = dataLocalISO(agora);
 
-        let historicoRef;
+        let snapshot;
 
+        // Se for o filtro diário, busca estritamente o dia de hoje (Economia extrema de banda)
         if (periodo === "diario") {
-            historicoRef = db.ref(`historico/${state.sensorID}/diario/${dataHojeStr}`);
-        } else {
-            historicoRef = db.ref(`historico/${state.sensorID}/diario`);
+            const refHoje = db.ref(`historico/${state.sensorID}/diario/${dataHojeStr}`);
+            snapshot = await refHoje.once("value");
         }
 
-        const snapshot = await historicoRef.once("value");
+        // Se não existir a pasta do dia ou se for outro filtro (semanal, mensal, anual)
+        if (!snapshot || !snapshot.exists()) {
+            const refGeral = db.ref(`historico/${state.sensorID}/diario`).limitToLast(1500);
+            snapshot = await refGeral.once("value");
+        }
 
         if (!snapshot.exists()) {
             return mostrarSemDados();
@@ -724,7 +728,7 @@ async function fetchData(periodo) {
 
         const base = snapshot.val();
 
-        function varrerEProcessar(obj) {
+        function varrerEProcessar(obj, chavePai = null) {
             if (!obj || typeof obj !== "object") return;
 
             if (obj.temp !== undefined || obj.hum !== undefined || obj.t !== undefined) {
@@ -733,10 +737,12 @@ async function fetchData(periodo) {
                 
                 if (!Number.isFinite(temperatura) || !Number.isFinite(umidade)) return;
 
-                let ts = Number(obj.timestamp || obj.ts);
+                let ts = Number(obj.timestamp || obj.ts || chavePai);
                 if (!Number.isFinite(ts) || ts <= 0) return;
                 
                 if (ts < 1e11) ts = ts * 1000;
+
+                if (!estaNoPeriodo(ts, periodo, agora)) return;
 
                 const dataObj = new Date(ts);
                 if (isNaN(dataObj.getTime())) return;
@@ -756,36 +762,12 @@ async function fetchData(periodo) {
             Object.keys(obj).forEach(chave => {
                 const subItem = obj[chave];
                 if (subItem && typeof subItem === "object") {
-                    varrerEProcessar(subItem);
-                } else if (subItem !== null && typeof subItem !== "object") {
-                    const potentialTs = Number(chave);
-                    if (Number.isFinite(potentialTs) && potentialTs > 1000000) {
-                        if (subItem.temp !== undefined || subItem.hum !== undefined) {
-                            let ts = potentialTs < 1e11 ? potentialTs * 1000 : potentialTs;
-                            const dataObj = new Date(ts);
-                            if (!isNaN(dataObj.getTime())) {
-                                const formatado = formatarDataHora(ts, false);
-                                state.globalData.push({
-                                    ts: ts,
-                                    temp: Number(subItem.temp),
-                                    hum: Number(subItem.hum),
-                                    data: formatado.data,
-                                    hora: formatado.hora
-                                });
-                            }
-                        }
-                    }
+                    varrerEProcessar(subItem, chave);
                 }
             });
         }
 
-        if (periodo !== "diario") {
-            Object.keys(base).forEach(dataChave => {
-                varrerEProcessar(base[dataChave]);
-            });
-        } else {
-            varrerEProcessar(base);
-        }
+        varrerEProcessar(base);
 
         const mapaUnico = new Map();
         state.globalData.forEach(item => {
