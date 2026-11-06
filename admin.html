@@ -137,9 +137,6 @@
             <input id="offsetHum" type="number" step="0.1" value="0" class="campo">
           </div>
         </div>
-        <p class="text-xs text-slate-400">
-          Os offsets só serão aplicados às medições se o código do ESP32 os utilizar.
-        </p>
       </div>
 
       <div class="space-y-2 pt-2 border-t">
@@ -172,6 +169,14 @@
 
         <label class="text-xs font-bold text-slate-500">Rota último contato</label>
         <input id="rotaLastSeen" required class="campo" placeholder="sensores/SENSOR_01/last_seen">
+      </div>
+
+      <!-- BOTÃO DE LIMPAR HISTÓRICO ESPECÍFICO (APARECE APENAS AO EDITAR) -->
+      <div id="divLimparHistorico" class="hidden pt-2 border-t">
+        <button type="button" onclick="limparHistoricoSensorAtual()"
+          class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-2 rounded-xl text-xs">
+          🗑️ Limpar Apenas o Histórico deste Sensor
+        </button>
       </div>
 
       <div class="flex gap-2 pt-3 border-t">
@@ -213,6 +218,7 @@ const db = firebase.database();
 let editando = false;
 let listeners = {};
 let cliquesLogoCount = 0;
+let modoAdminAtivo = false; // Controla se os botões de edição estão visíveis
 
 const estadoAnteriorPorta = {};
 const dadosSensores = {};
@@ -253,12 +259,23 @@ function sugerirRotas() {
 
 document.getElementById("id").addEventListener("input", sugerirRotas);
 
+/* CLIQUE NO LOGO (5 VEZES PARA DESBLOQUEAR EDIÇÃO E NOVO SENSOR) */
 document.getElementById("logoAdmin").addEventListener("click", () => {
   cliquesLogoCount++;
 
   if (cliquesLogoCount >= 5) {
     cliquesLogoCount = 0;
-    document.getElementById("btnNovoSensor").classList.toggle("hidden");
+    modoAdminAtivo = !modoAdminAtivo;
+    
+    // Alterna visibilidade do botão Novo Sensor
+    document.getElementById("btnNovoSensor").classList.toggle("hidden", !modoAdminAtivo);
+
+    // Atualiza todos os botões de editar/excluir já renderizados nos cards
+    document.querySelectorAll(".admin-controls").forEach(el => {
+      el.classList.toggle("hidden", !modoAdminAtivo);
+    });
+
+    alert(modoAdminAtivo ? "🔓 Modo Administrador Ativado!" : "🔒 Modo Administrador Ocultado.");
   }
 });
 
@@ -354,12 +371,6 @@ async function solicitarPermissaoPush() {
   }
 }
 
-/*
- * IMPORTANTE:
- * As notificações locais e os e-mails deste HTML dependem de a página
- * estar aberta e conectada. Isso não configura, por si só, push em segundo plano.
- */
-
 /* CARREGAMENTO DOS SENSORES */
 db.ref("central_sensores").on("value", snapshot => {
   limparListeners();
@@ -403,6 +414,9 @@ function criarCard(id, sensor) {
   card.id = `card-${id}`;
   card.className = "bg-white rounded-2xl border border-slate-200 shadow-sm p-5";
 
+  // A classe 'admin-controls' e 'hidden' garantem que os botões só apareçam após os 5 cliques no logo
+  const classeAdminVisibilidade = modoAdminAtivo ? "" : "hidden";
+
   card.innerHTML = `
     <div class="flex justify-between items-start">
       <div>
@@ -411,9 +425,9 @@ function criarCard(id, sensor) {
         <p class="text-xs text-slate-500">Cliente: ${escapeHtml(sensor.clientID || "-")}</p>
       </div>
 
-      <div class="flex gap-2">
-        <button onclick="editar('${escapeHtml(id)}')" class="bg-slate-100 px-3 py-1.5 rounded-lg">✏️</button>
-        <button onclick="excluir('${escapeHtml(id)}')" class="bg-slate-100 px-3 py-1.5 rounded-lg">🗑️</button>
+      <div class="admin-controls ${classeAdminVisibilidade} flex gap-2">
+        <button onclick="editar('${escapeHtml(id)}')" class="bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg" title="Editar Sensor">✏️</button>
+        <button onclick="excluir('${escapeHtml(id)}')" class="bg-slate-100 hover:bg-rose-100 px-3 py-1.5 rounded-lg" title="Excluir Sensor">🗑️</button>
       </div>
     </div>
 
@@ -491,10 +505,7 @@ function criarCard(id, sensor) {
     }
   });
 
-  /*
-   * ROTA DA PORTA ALINHADA AO ESP32:
-   * sensores/SENSOR_01/porta_aberta
-   */
+  /* ROTA DA PORTA */
   ouvirRota(sensor.rotaPorta || `sensores/${id}/porta_aberta`, valor => {
     atualizarStatusPorta(id, sensor, valor);
   });
@@ -605,13 +616,12 @@ function silenciarAlarmeBuzzer(id) {
     });
 }
 
-/* ESTADO ONLINE/OFFLINE */
+/* ESTADO ONLINE/OFFLINE (Tolerância de 20 segundos) */
 function atualizarOnline(id, timestamp) {
   let ts = Number(timestamp);
 
   if (!Number.isFinite(ts)) return;
 
-  // Aceita timestamp em segundos ou milissegundos.
   if (ts > 100000000000) ts = Math.floor(ts / 1000);
 
   const diferenca = Math.floor(Date.now() / 1000) - ts;
@@ -620,7 +630,7 @@ function atualizarOnline(id, timestamp) {
 
   if (!elemento) return;
 
-  if (diferenca >= -10 && diferenca <= 75) {
+  if (diferenca >= -10 && diferenca <= 20) {
     elemento.textContent = "● Online";
     elemento.className = "text-sm text-emerald-600 font-bold";
   } else {
@@ -695,13 +705,8 @@ function verificarAlertaCaixas(id, sensor, temperaturaForcada = null, umidadeFor
   const textoTemp = document.getElementById(`temp-${id}`)?.textContent || "";
   const textoHum = document.getElementById(`hum-${id}`)?.textContent || "";
 
-  const temperatura = temperaturaForcada !== null
-    ? temperaturaForcada
-    : parseFloat(textoTemp);
-
-  const umidade = umidadeForcada !== null
-    ? umidadeForcada
-    : parseFloat(textoHum);
+  const temperatura = temperaturaForcada !== null ? temperaturaForcada : parseFloat(textoTemp);
+  const umidade = umidadeForcada !== null ? umidadeForcada : parseFloat(textoHum);
 
   verificar("temp", temperatura, sensor.tempMin, sensor.tempMax, "°C");
   verificar("hum", umidade, sensor.humMin, sensor.humMax, "%");
@@ -721,6 +726,9 @@ function abrirModal() {
   document.getElementById("offsetHum").value = 0;
   document.getElementById("tempoMaxPortaAberta").value = 3;
   document.getElementById("buzzerHabilitado").checked = true;
+
+  // Esconde botão de limpar histórico ao criar novo sensor
+  document.getElementById("divLimparHistorico").classList.add("hidden");
 
   ["rotaTemp", "rotaHum", "rotaPorta", "rotaLastSeen"].forEach(campo => {
     document.getElementById(campo).value = "";
@@ -772,8 +780,10 @@ function editar(id) {
         document.getElementById(campo).value = valor;
       });
 
-      document.getElementById("buzzerHabilitado").checked =
-        sensor.buzzerHabilitado !== false;
+      document.getElementById("buzzerHabilitado").checked = sensor.buzzerHabilitado !== false;
+
+      // Mostra o botão de limpar histórico específico quando está editando
+      document.getElementById("divLimparHistorico").classList.remove("hidden");
 
       document.getElementById("modal").classList.remove("hidden");
     })
@@ -783,12 +793,30 @@ function editar(id) {
     });
 }
 
+/* FUNÇÃO PARA LIMPAR APENAS O HISTÓRICO DO SENSOR ATUAL */
+function limparHistoricoSensorAtual() {
+  const id = document.getElementById("id").value.trim();
+  if (!id) return;
+
+  if (!confirm(`Tem certeza que deseja apagar TODO o histórico de registros e eventos do ${id}? Esta ação não pode ser desfeita.`)) {
+    return;
+  }
+
+  // Apaga apenas a rota de histórico deste ID específico
+  db.ref(`historico/${id}`).remove()
+    .then(() => {
+      alert(`Histórico do ${id} limpo com sucesso! Os demais sensores continuam intactos.`);
+    })
+    .catch(erro => {
+      console.error(erro);
+      alert("Erro ao limpar o histórico no Firebase.");
+    });
+}
+
 /* SALVAR CONFIGURAÇÕES */
 function campoNum(id) {
   const valor = document.getElementById(id).value.trim();
-
   if (valor === "") return null;
-
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero : null;
 }
@@ -814,24 +842,13 @@ function salvar(event) {
 
     emailAlerta: document.getElementById("emailAlerta").value.trim(),
 
-    freqRegistro: Math.max(
-      1,
-      parseInt(document.getElementById("freqRegistro").value, 10) || 60
-    ),
-
-    intervaloAlerta: Math.max(
-      1,
-      parseInt(document.getElementById("intervaloAlerta").value, 10) || 15
-    ),
+    freqRegistro: Math.max(1, parseInt(document.getElementById("freqRegistro").value, 10) || 60),
+    intervaloAlerta: Math.max(1, parseInt(document.getElementById("intervaloAlerta").value, 10) || 15),
 
     offsetTemp: campoNum("offsetTemp") ?? 0,
     offsetHum: campoNum("offsetHum") ?? 0,
 
-    tempoMaxPortaAberta: Math.max(
-      1,
-      parseInt(document.getElementById("tempoMaxPortaAberta").value, 10) || 3
-    ),
-
+    tempoMaxPortaAberta: Math.max(1, parseInt(document.getElementById("tempoMaxPortaAberta").value, 10) || 3),
     buzzerHabilitado: document.getElementById("buzzerHabilitado").checked,
 
     rotaTemp: normalizarRota(document.getElementById("rotaTemp").value),
