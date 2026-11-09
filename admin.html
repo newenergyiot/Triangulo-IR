@@ -214,6 +214,9 @@ let editando = false;
 let listeners = {};
 let cliquesLogoCount = 0;
 
+/* NOVO: CONTROLE DO MODO ADMINISTRATIVO */
+let modoAdminAtivo = false;
+
 const estadoAnteriorPorta = {};
 const dadosSensores = {};
 const alertasEmMemoria = {};
@@ -238,6 +241,18 @@ function formatarIdSensor(valor) {
   return resultado ? `SENSOR_${resultado[1].padStart(2, "0")}` : texto;
 }
 
+/* NOVO: MOSTRAR OU OCULTAR OPÇÕES ADMINISTRATIVAS */
+function atualizarVisibilidadeAdmin() {
+  document.querySelectorAll(".acao-admin").forEach(botao => {
+    botao.classList.toggle("hidden", !modoAdminAtivo);
+  });
+
+  document.getElementById("btnNovoSensor").classList.toggle(
+    "hidden",
+    !modoAdminAtivo
+  );
+}
+
 /* SUGESTÃO AUTOMÁTICA DAS ROTAS DO ESP32 */
 function sugerirRotas() {
   if (editando) return;
@@ -253,12 +268,22 @@ function sugerirRotas() {
 
 document.getElementById("id").addEventListener("input", sugerirRotas);
 
+/* DESBLOQUEIO ADMINISTRATIVO COM CINCO CLIQUES */
 document.getElementById("logoAdmin").addEventListener("click", () => {
   cliquesLogoCount++;
 
   if (cliquesLogoCount >= 5) {
     cliquesLogoCount = 0;
-    document.getElementById("btnNovoSensor").classList.toggle("hidden");
+
+    modoAdminAtivo = !modoAdminAtivo;
+
+    atualizarVisibilidadeAdmin();
+
+    if (modoAdminAtivo) {
+      alert("Modo administrativo ativado.");
+    } else {
+      alert("Modo administrativo desativado.");
+    }
   }
 });
 
@@ -412,8 +437,27 @@ function criarCard(id, sensor) {
       </div>
 
       <div class="flex gap-2">
-        <button onclick="editar('${escapeHtml(id)}')" class="bg-slate-100 px-3 py-1.5 rounded-lg">✏️</button>
-        <button onclick="excluir('${escapeHtml(id)}')" class="bg-slate-100 px-3 py-1.5 rounded-lg">🗑️</button>
+
+        <!-- LÁPIS: SOMENTE NO MODO ADMINISTRATIVO -->
+        <button onclick="editar('${escapeHtml(id)}')"
+          class="acao-admin hidden bg-slate-100 px-3 py-1.5 rounded-lg"
+          title="Editar configurações">
+          ✏️
+        </button>
+
+        <button onclick="excluir('${escapeHtml(id)}')"
+          class="bg-slate-100 px-3 py-1.5 rounded-lg"
+          title="Excluir sensor da central">
+          🗑️
+        </button>
+
+        <!-- NOVO: APAGAR HISTÓRICO INDIVIDUAL -->
+        <button onclick="apagarHistoricoSensor('${escapeHtml(id)}')"
+          class="acao-admin hidden bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold"
+          title="Apagar somente o histórico deste sensor">
+          🧹
+        </button>
+
       </div>
     </div>
 
@@ -469,6 +513,9 @@ function criarCard(id, sensor) {
 
   container.appendChild(card);
 
+  /* APLICA O MODO ADMINISTRATIVO AO NOVO CARTÃO */
+  atualizarVisibilidadeAdmin();
+
   /* TEMPERATURA */
   ouvirRota(sensor.rotaTemp || `sensores/${id}/temp`, valor => {
     const elemento = document.getElementById(`temp-${id}`);
@@ -520,6 +567,47 @@ function criarCard(id, sensor) {
       elemento.textContent = "";
     }
   });
+}
+
+/* NOVO: EXCLUIR SOMENTE O HISTÓRICO DO SENSOR SELECIONADO */
+function apagarHistoricoSensor(id) {
+
+  if (!modoAdminAtivo) {
+    alert("Ative o modo administrativo para realizar esta operação.");
+    return;
+  }
+
+  const primeiraConfirmacao = confirm(
+    `ATENÇÃO!\n\nDeseja realmente apagar TODO o histórico do ${id}?\n\n` +
+    "Serão excluídos somente:\n" +
+    "- Histórico de temperatura e umidade;\n" +
+    "- Histórico de eventos da porta.\n\n" +
+    "Os demais sensores e as configurações deste sensor serão preservados."
+  );
+
+  if (!primeiraConfirmacao) return;
+
+  const segundaConfirmacao = confirm(
+    `CONFIRMAÇÃO FINAL\n\n` +
+    `Você está prestes a apagar permanentemente os dados históricos do ${id}.\n\n` +
+    "Esta operação não poderá ser desfeita.\n\nDeseja continuar?"
+  );
+
+  if (!segundaConfirmacao) return;
+
+  /* APAGA APENAS O NÓ DO SENSOR SELECIONADO */
+  db.ref(`historico/${id}`).remove()
+    .then(() => {
+      alert(`Histórico do ${id} apagado com sucesso.\n\nOs outros sensores não foram alterados.`);
+    })
+    .catch(erro => {
+      console.error("Erro ao apagar histórico:", erro);
+
+      alert(
+        "Não foi possível apagar o histórico.\n\n" +
+        "Verifique a conexão e as permissões do Firebase."
+      );
+    });
 }
 
 /* INTERPRETAÇÃO DO ESTADO DA PORTA */
@@ -735,6 +823,12 @@ function fecharModal() {
 
 /* EDITAR SENSOR */
 function editar(id) {
+
+  if (!modoAdminAtivo) {
+    alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
+    return;
+  }
+
   db.ref(`central_sensores/${id}`).once("value")
     .then(snapshot => {
       if (!snapshot.exists()) {
