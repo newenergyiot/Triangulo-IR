@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -214,7 +215,7 @@ let editando = false;
 let listeners = {};
 let cliquesLogoCount = 0;
 
-/* NOVO: CONTROLE DO MODO ADMINISTRATIVO */
+/* CONTROLE DO MODO ADMINISTRATIVO */
 let modoAdminAtivo = false;
 
 const estadoAnteriorPorta = {};
@@ -241,7 +242,7 @@ function formatarIdSensor(valor) {
   return resultado ? `SENSOR_${resultado[1].padStart(2, "0")}` : texto;
 }
 
-/* NOVO: MOSTRAR OU OCULTAR OPÇÕES ADMINISTRATIVAS */
+/* MOSTRAR OU OCULTAR TODAS AS OPÇÕES ADMINISTRATIVAS */
 function atualizarVisibilidadeAdmin() {
   document.querySelectorAll(".acao-admin").forEach(botao => {
     botao.classList.toggle("hidden", !modoAdminAtivo);
@@ -274,7 +275,6 @@ document.getElementById("logoAdmin").addEventListener("click", () => {
 
   if (cliquesLogoCount >= 5) {
     cliquesLogoCount = 0;
-
     modoAdminAtivo = !modoAdminAtivo;
 
     atualizarVisibilidadeAdmin();
@@ -380,7 +380,6 @@ async function solicitarPermissaoPush() {
 }
 
 /*
- * IMPORTANTE:
  * As notificações locais e os e-mails deste HTML dependem de a página
  * estar aberta e conectada. Isso não configura, por si só, push em segundo plano.
  */
@@ -438,7 +437,6 @@ function criarCard(id, sensor) {
 
       <div class="flex gap-2">
 
-        <!-- LÁPIS: SOMENTE NO MODO ADMINISTRATIVO -->
         <button onclick="editar('${escapeHtml(id)}')"
           class="acao-admin hidden bg-slate-100 px-3 py-1.5 rounded-lg"
           title="Editar configurações">
@@ -446,12 +444,11 @@ function criarCard(id, sensor) {
         </button>
 
         <button onclick="excluir('${escapeHtml(id)}')"
-          class="bg-slate-100 px-3 py-1.5 rounded-lg"
+          class="acao-admin hidden bg-slate-100 px-3 py-1.5 rounded-lg"
           title="Excluir sensor da central">
           🗑️
         </button>
 
-        <!-- NOVO: APAGAR HISTÓRICO INDIVIDUAL -->
         <button onclick="apagarHistoricoSensor('${escapeHtml(id)}')"
           class="acao-admin hidden bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold"
           title="Apagar somente o histórico deste sensor">
@@ -513,7 +510,6 @@ function criarCard(id, sensor) {
 
   container.appendChild(card);
 
-  /* APLICA O MODO ADMINISTRATIVO AO NOVO CARTÃO */
   atualizarVisibilidadeAdmin();
 
   /* TEMPERATURA */
@@ -538,10 +534,7 @@ function criarCard(id, sensor) {
     }
   });
 
-  /*
-   * ROTA DA PORTA ALINHADA AO ESP32:
-   * sensores/SENSOR_01/porta_aberta
-   */
+  /* ROTA DA PORTA */
   ouvirRota(sensor.rotaPorta || `sensores/${id}/porta_aberta`, valor => {
     atualizarStatusPorta(id, sensor, valor);
   });
@@ -551,7 +544,7 @@ function criarCard(id, sensor) {
     atualizarOnline(id, valor);
   });
 
-  /* TEMPO DE PORTA ABERTA, EM SEGUNDOS */
+  /* TEMPO DE PORTA ABERTA */
   ouvirRota(`sensores/${id}/tempo_aberta_segs`, valor => {
     const elemento = document.getElementById(`tempo-porta-${id}`);
 
@@ -569,33 +562,30 @@ function criarCard(id, sensor) {
   });
 }
 
-/* NOVO: EXCLUIR SOMENTE O HISTÓRICO DO SENSOR SELECIONADO */
+/* APAGAR SOMENTE O HISTÓRICO DO SENSOR SELECIONADO */
 function apagarHistoricoSensor(id) {
 
   if (!modoAdminAtivo) {
-    alert("Ative o modo administrativo para realizar esta operação.");
+    alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
     return;
   }
 
   const primeiraConfirmacao = confirm(
     `ATENÇÃO!\n\nDeseja realmente apagar TODO o histórico do ${id}?\n\n` +
-    "Serão excluídos somente:\n" +
-    "- Histórico de temperatura e umidade;\n" +
-    "- Histórico de eventos da porta.\n\n" +
-    "Os demais sensores e as configurações deste sensor serão preservados."
+    "Serão excluídos somente os dados históricos armazenados em historico/" + id + ".\n\n" +
+    "As configurações e os outros sensores serão preservados."
   );
 
   if (!primeiraConfirmacao) return;
 
   const segundaConfirmacao = confirm(
     `CONFIRMAÇÃO FINAL\n\n` +
-    `Você está prestes a apagar permanentemente os dados históricos do ${id}.\n\n` +
+    `Você está prestes a apagar permanentemente o histórico do ${id}.\n\n` +
     "Esta operação não poderá ser desfeita.\n\nDeseja continuar?"
   );
 
   if (!segundaConfirmacao) return;
 
-  /* APAGA APENAS O NÓ DO SENSOR SELECIONADO */
   db.ref(`historico/${id}`).remove()
     .then(() => {
       alert(`Histórico do ${id} apagado com sucesso.\n\nOs outros sensores não foram alterados.`);
@@ -699,7 +689,6 @@ function atualizarOnline(id, timestamp) {
 
   if (!Number.isFinite(ts)) return;
 
-  // Aceita timestamp em segundos ou milissegundos.
   if (ts > 100000000000) ts = Math.floor(ts / 1000);
 
   const diferenca = Math.floor(Date.now() / 1000) - ts;
@@ -797,6 +786,11 @@ function verificarAlertaCaixas(id, sensor, temperaturaForcada = null, umidadeFor
 
 /* ABRIR FORMULÁRIO DE CADASTRO */
 function abrirModal() {
+  if (!modoAdminAtivo) {
+    alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
+    return;
+  }
+
   editando = false;
 
   document.getElementById("formSensor").reset();
@@ -890,6 +884,11 @@ function campoNum(id) {
 function salvar(event) {
   event.preventDefault();
 
+  if (!modoAdminAtivo) {
+    alert("Modo administrativo desativado. Não é possível salvar alterações.");
+    return;
+  }
+
   const id = formatarIdSensor(document.getElementById("id").value);
 
   if (!/^SENSOR_\d{2}$/.test(id)) {
@@ -952,6 +951,12 @@ function salvar(event) {
 
 /* EXCLUIR SENSOR DA CENTRAL */
 function excluir(id) {
+
+  if (!modoAdminAtivo) {
+    alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
+    return;
+  }
+
   if (!confirm(`Deseja excluir permanentemente o ${id} da central?`)) return;
 
   db.ref(`central_sensores/${id}`).remove()
