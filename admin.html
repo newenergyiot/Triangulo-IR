@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -23,7 +22,6 @@
       font-size: .875rem;
       outline: none;
     }
-
     .campo:focus {
       border-color: #3b82f6;
       box-shadow: 0 0 0 2px #bfdbfe;
@@ -35,7 +33,6 @@
 
 <header class="bg-white border-b p-5 shadow-sm">
   <div class="max-w-7xl mx-auto flex flex-wrap gap-3 justify-between items-center">
-
     <div id="logoAdmin" class="cursor-pointer select-none"
          title="Clique 5 vezes para opções administrativas">
       <h1 class="text-2xl font-bold text-slate-800">CENTRAL NEWENERGY</h1>
@@ -43,10 +40,7 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
-
-      <span id="status" class="text-sm text-slate-500">
-        ● Conectando...
-      </span>
+      <span id="status" class="text-sm text-slate-500">● Conectando...</span>
 
       <button onclick="solicitarPermissaoPush()" id="btnPush"
         class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl text-xs">
@@ -62,7 +56,6 @@
         class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs">
         Sair
       </button>
-
     </div>
   </div>
 </header>
@@ -72,226 +65,134 @@
 </main>
 
 <!-- MODAL DO SENSOR -->
-
 <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 overflow-y-auto">
-
   <div class="bg-white rounded-2xl p-6 w-full max-w-lg my-8 max-h-[90vh] overflow-y-auto">
 
     <div class="flex justify-between items-center mb-5 border-b pb-3">
-
       <div>
-        <h2 id="titulo" class="text-lg font-bold text-slate-800">
-          Novo Sensor
-        </h2>
-
-        <p class="text-xs text-slate-500">
-          Configurações Gerais e Serviços
-        </p>
+        <h2 id="titulo" class="text-lg font-bold text-slate-800">Novo Sensor</h2>
+        <p class="text-xs text-slate-500">Configurações Gerais e Serviços</p>
       </div>
-
-      <button onclick="fecharModal()" class="text-slate-400 font-bold">
-        ✕
-      </button>
-
+      <button onclick="fecharModal()" class="text-slate-400 font-bold">✕</button>
     </div>
 
     <form id="formSensor" onsubmit="salvar(event)" class="space-y-4">
 
       <div class="space-y-2">
-        <span class="text-xs font-bold text-blue-600 uppercase">
-          Informações Principais
-        </span>
-
+        <span class="text-xs font-bold text-blue-600 uppercase">Informações Principais</span>
         <input id="id" required placeholder="SENSOR_01" class="campo">
         <input id="nome" required placeholder="Local / Equipamento" class="campo">
         <input id="cliente" required placeholder="Nome do Cliente" class="campo">
       </div>
 
       <div class="space-y-2 pt-2 border-t">
-
-        <span class="text-xs font-bold text-amber-600 uppercase">
-          Limites de Alerta
-        </span>
+        <span class="text-xs font-bold text-amber-600 uppercase">Limites de Alerta</span>
 
         <div class="grid grid-cols-2 gap-2">
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Temperatura mínima (°C)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Temperatura mínima (°C)</label>
             <input id="tempMin" type="number" step="0.1" placeholder="2.0" class="campo">
           </div>
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Temperatura máxima (°C)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Temperatura máxima (°C)</label>
             <input id="tempMax" type="number" step="0.1" placeholder="8.0" class="campo">
           </div>
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Umidade mínima (%)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Umidade mínima (%)</label>
             <input id="humMin" type="number" step="0.1" placeholder="30" class="campo">
           </div>
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Umidade máxima (%)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Umidade máxima (%)</label>
             <input id="humMax" type="number" step="0.1" placeholder="70" class="campo">
           </div>
-
         </div>
 
-        <label class="text-xs font-bold text-slate-500">
-          E-mail para alertas
-        </label>
-
+        <label class="text-xs font-bold text-slate-500">E-mail para alertas</label>
         <input id="emailAlerta" type="email" placeholder="tecnico@empresa.com" class="campo">
-
       </div>
 
       <div class="space-y-2 pt-2 border-t">
-
-        <span class="text-xs font-bold text-slate-600 uppercase">
-          Parâmetros Operacionais
-        </span>
-
+        <span class="text-xs font-bold text-slate-600 uppercase">Parâmetros Operacionais</span>
         <div class="grid grid-cols-2 gap-2">
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Leitura (segundos)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Leitura (segundos)</label>
             <input id="freqRegistro" type="number" min="1" value="60" required class="campo">
           </div>
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Intervalo de alerta (minutos)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Intervalo de alerta (minutos)</label>
             <input id="intervaloAlerta" type="number" min="1" value="15" class="campo">
           </div>
-
         </div>
       </div>
 
       <div class="space-y-2 pt-2 border-t">
-
-        <span class="text-xs font-bold text-emerald-600 uppercase">
-          Calibração
-        </span>
-
+        <span class="text-xs font-bold text-emerald-600 uppercase">Calibração</span>
         <div class="grid grid-cols-2 gap-2">
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Offset de temperatura
-            </label>
+            <label class="text-xs font-bold text-slate-500">Offset de temperatura</label>
             <input id="offsetTemp" type="number" step="0.1" value="0" class="campo">
           </div>
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Offset de umidade
-            </label>
+            <label class="text-xs font-bold text-slate-500">Offset de umidade</label>
             <input id="offsetHum" type="number" step="0.1" value="0" class="campo">
           </div>
-
         </div>
-
         <p class="text-xs text-slate-400">
           Os offsets só serão aplicados às medições se o código do ESP32 os utilizar.
         </p>
-
       </div>
 
       <div class="space-y-2 pt-2 border-t">
-
-        <span class="text-xs font-bold text-rose-600 uppercase">
-          Alarme e Porta
-        </span>
-
+        <span class="text-xs font-bold text-rose-600 uppercase">Alarme e Porta</span>
         <div class="grid grid-cols-2 gap-2">
-
           <div>
-            <label class="text-xs font-bold text-slate-500">
-              Tempo máximo da porta aberta (min)
-            </label>
+            <label class="text-xs font-bold text-slate-500">Tempo máximo da porta aberta (min)</label>
             <input id="tempoMaxPortaAberta" type="number" min="1" value="3" class="campo">
           </div>
-
           <div class="flex items-center pt-4">
             <label class="flex items-center gap-2 text-xs font-bold text-slate-600">
               <input id="buzzerHabilitado" type="checkbox" checked class="w-4 h-4">
               Buzzer habilitado
             </label>
           </div>
-
         </div>
       </div>
 
       <div class="space-y-2 pt-2 border-t">
+        <span class="text-xs font-bold text-slate-400 uppercase">Mapeamento Firebase</span>
 
-        <span class="text-xs font-bold text-slate-400 uppercase">
-          Mapeamento Firebase
-        </span>
-
-        <label class="text-xs font-bold text-slate-500">
-          Rota temperatura
-        </label>
+        <label class="text-xs font-bold text-slate-500">Rota temperatura</label>
         <input id="rotaTemp" required class="campo" placeholder="sensores/SENSOR_01/temp">
 
-        <label class="text-xs font-bold text-slate-500">
-          Rota umidade
-        </label>
+        <label class="text-xs font-bold text-slate-500">Rota umidade</label>
         <input id="rotaHum" required class="campo" placeholder="sensores/SENSOR_01/hum">
 
-        <label class="text-xs font-bold text-slate-500">
-          Rota porta
-        </label>
+        <label class="text-xs font-bold text-slate-500">Rota porta</label>
         <input id="rotaPorta" required class="campo" placeholder="sensores/SENSOR_01/porta_aberta">
 
-        <label class="text-xs font-bold text-slate-500">
-          Rota último contato
-        </label>
+        <label class="text-xs font-bold text-slate-500">Rota último contato</label>
         <input id="rotaLastSeen" required class="campo" placeholder="sensores/SENSOR_01/last_seen">
-
       </div>
 
       <div class="flex gap-2 pt-3 border-t">
-
         <button type="button" onclick="fecharModal()"
           class="w-1/3 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl">
           Cancelar
         </button>
-
         <button id="salvarBtn" type="submit"
           class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">
           Salvar Configurações
         </button>
-
       </div>
-
     </form>
   </div>
 </div>
 
 <script>
-
-/* =====================================================
-   CONFIGURAÇÃO EMAILJS
-===================================================== */
-
+/* CONFIGURAÇÃO EMAILJS */
 emailjs.init("kD4PCi1Nc4Tw0GD1e");
 
-
-/* =====================================================
-   CONFIGURAÇÃO FIREBASE
-===================================================== */
-
+/* CONFIGURAÇÃO FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
   authDomain: "triangulo-ir.firebaseapp.com",
@@ -309,35 +210,18 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.database();
 
-
-/* =====================================================
-   VARIÁVEIS GLOBAIS
-===================================================== */
-
 let editando = false;
 let listeners = {};
 let cliquesLogoCount = 0;
 
+/* CONTROLE DO MODO ADMINISTRATIVO */
 let modoAdminAtivo = false;
 
 const estadoAnteriorPorta = {};
 const dadosSensores = {};
 const alertasEmMemoria = {};
 
-// NOVO: armazena o último contato de cada ESP32
-const ultimoContatoSensor = {};
-
-// NOVO: tempo máximo sem comunicação
-const TEMPO_LIMITE_OFFLINE = 20;
-
-// NOVO: intervalo de verificação da Central
-const INTERVALO_VERIFICACAO_ONLINE = 1000;
-
-
-/* =====================================================
-   FUNÇÕES AUXILIARES
-===================================================== */
-
+/* FUNÇÕES AUXILIARES */
 function escapeHtml(valor) {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")
@@ -354,19 +238,11 @@ function normalizarRota(rota) {
 function formatarIdSensor(valor) {
   const texto = String(valor || "").trim().toUpperCase().replace(/\s+/g, "_");
   const resultado = texto.match(/^SENSOR_(\d{1,2})$/);
-
-  return resultado
-    ? `SENSOR_${resultado[1].padStart(2, "0")}`
-    : texto;
+  return resultado ? SENSOR_${resultado[1].padStart(2, "0")} : texto;
 }
 
-
-/* =====================================================
-   CONTROLE DO MODO ADMINISTRATIVO
-===================================================== */
-
+/* MOSTRAR OU OCULTAR TODAS AS OPÇÕES ADMINISTRATIVAS */
 function atualizarVisibilidadeAdmin() {
-
   document.querySelectorAll(".acao-admin").forEach(botao => {
     botao.classList.toggle("hidden", !modoAdminAtivo);
   });
@@ -377,38 +253,26 @@ function atualizarVisibilidadeAdmin() {
   );
 }
 
-
-/* =====================================================
-   SUGESTÃO AUTOMÁTICA DAS ROTAS DO ESP32
-===================================================== */
-
+/* SUGESTÃO AUTOMÁTICA DAS ROTAS DO ESP32 */
 function sugerirRotas() {
-
   if (editando) return;
 
   const id = formatarIdSensor(document.getElementById("id").value);
-
   if (!/^SENSOR_\d{2}$/.test(id)) return;
 
-  document.getElementById("rotaTemp").value = `sensores/${id}/temp`;
-  document.getElementById("rotaHum").value = `sensores/${id}/hum`;
-  document.getElementById("rotaPorta").value = `sensores/${id}/porta_aberta`;
-  document.getElementById("rotaLastSeen").value = `sensores/${id}/last_seen`;
+  document.getElementById("rotaTemp").value = sensores/${id}/temp;
+  document.getElementById("rotaHum").value = sensores/${id}/hum;
+  document.getElementById("rotaPorta").value = sensores/${id}/porta_aberta;
+  document.getElementById("rotaLastSeen").value = sensores/${id}/last_seen;
 }
 
 document.getElementById("id").addEventListener("input", sugerirRotas);
 
-
-/* =====================================================
-   DESBLOQUEIO ADMINISTRATIVO COM CINCO CLIQUES
-===================================================== */
-
+/* DESBLOQUEIO ADMINISTRATIVO COM CINCO CLIQUES */
 document.getElementById("logoAdmin").addEventListener("click", () => {
-
   cliquesLogoCount++;
 
   if (cliquesLogoCount >= 5) {
-
     cliquesLogoCount = 0;
     modoAdminAtivo = !modoAdminAtivo;
 
@@ -422,54 +286,34 @@ document.getElementById("logoAdmin").addEventListener("click", () => {
   }
 });
 
-
-/* =====================================================
-   AUTENTICAÇÃO
-===================================================== */
-
+/* AUTENTICAÇÃO */
 auth.onAuthStateChanged(user => {
-
   if (!user) {
     window.location.href = "index.html";
   }
-
 });
 
 function fazerLogout() {
-
   auth.signOut().then(() => {
-
     window.location.href = "index.html";
-
   }).catch(console.error);
-
 }
 
-
-/* =====================================================
-   LISTENERS FIREBASE
-===================================================== */
-
+/* LISTENERS FIREBASE */
 function limparListeners() {
-
   Object.values(listeners).forEach(ref => {
-
     try {
       ref.off();
     } catch (erro) {
       console.warn(erro);
     }
-
   });
 
   listeners = {};
-
 }
 
 function ouvirRota(rota, callback) {
-
   const caminho = normalizarRota(rota);
-
   if (!caminho) return;
 
   if (listeners[caminho]) {
@@ -479,189 +323,115 @@ function ouvirRota(rota, callback) {
   const referencia = db.ref(caminho);
 
   referencia.on("value", snapshot => {
-
     if (snapshot.exists()) {
       callback(snapshot.val());
     }
-
   }, erro => {
-
     console.error("Erro lendo Firebase:", caminho, erro);
-
   });
 
   listeners[caminho] = referencia;
-
 }
 
-
-/* =====================================================
-   ALERTAS POR E-MAIL
-===================================================== */
-
+/* ALERTAS POR E-MAIL */
 function dispararEmailAlerta(emailDestino, equipamento, tipoAlerta, valorDetectado) {
-
   if (!emailDestino) return;
 
   emailjs.send("service_v0ldsah", "template_hnmc8uf", {
-
     para_email: emailDestino,
     equipamento: equipamento,
     tipo: tipoAlerta,
     valor: valorDetectado,
     data: new Date().toLocaleString("pt-BR")
-
   }).then(resposta => {
-
     console.log("E-mail solicitado:", resposta.status);
-
   }).catch(erro => {
-
     console.error("Erro EmailJS:", erro);
-
   });
-
 }
 
-
-/* =====================================================
-   NOTIFICAÇÃO LOCAL DO NAVEGADOR
-===================================================== */
-
+/* NOTIFICAÇÃO LOCAL DO NAVEGADOR */
 function dispararNotificacaoLocal(titulo, mensagem) {
-
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
   try {
-
     new Notification(titulo, { body: mensagem });
-
   } catch (erro) {
-
     console.warn("Não foi possível exibir a notificação:", erro);
-
   }
-
 }
 
 async function solicitarPermissaoPush() {
-
   if (!("Notification" in window)) {
-
     alert("Este navegador não oferece suporte a notificações.");
     return;
-
   }
 
   const permissao = await Notification.requestPermission();
 
   if (permissao === "granted") {
-
     const botao = document.getElementById("btnPush");
-
     botao.textContent = "🔔 Notificações Ativas";
     botao.className = "bg-emerald-600 text-white font-bold px-3 py-2 rounded-xl text-xs";
-
   } else {
-
     alert("Permissão de notificação não concedida.");
-
   }
-
 }
 
-
 /*
- * As notificações locais e os e-mails deste HTML
- * dependem de a página estar aberta e conectada.
- *
- * Isso não configura, por si só, push em segundo plano.
+ * As notificações locais e os e-mails deste HTML dependem de a página
+ * estar aberta e conectada. Isso não configura, por si só, push em segundo plano.
  */
 
-
-/* =====================================================
-   CARREGAMENTO DOS SENSORES
-===================================================== */
-
+/* CARREGAMENTO DOS SENSORES */
 db.ref("central_sensores").on("value", snapshot => {
-
   limparListeners();
 
   const container = document.getElementById("sensores");
-
   container.innerHTML = "";
 
   Object.keys(dadosSensores).forEach(chave => delete dadosSensores[chave]);
 
   if (!snapshot.exists()) {
-
     container.innerHTML =
       '<p class="text-slate-500 col-span-full text-center">Nenhum sensor cadastrado.</p>';
 
     document.getElementById("status").textContent = "● Nenhum sensor";
-
     return;
-
   }
 
   document.getElementById("status").textContent = "● Sistema conectado";
 
   snapshot.forEach(item => {
-
     dadosSensores[item.key] = item.val();
-
     criarCard(item.key, item.val());
-
   });
 
 }, erro => {
-
   console.error("Erro central_sensores:", erro);
-
   document.getElementById("status").textContent = "● Erro de conexão";
-
 });
 
-
-/* =====================================================
-   CRIAÇÃO DO CARTÃO
-===================================================== */
-
+/* CRIAÇÃO DO CARTÃO */
 function criarCard(id, sensor) {
-
   const container = document.getElementById("sensores");
-
   const card = document.createElement("div");
 
   const tempMin = sensor.tempMin ?? "--";
   const tempMax = sensor.tempMax ?? "--";
   const humMin = sensor.humMin ?? "--";
   const humMax = sensor.humMax ?? "--";
-
   const frequencia = Number(sensor.freqRegistro) || 60;
 
-  card.id = `card-${id}`;
-
+  card.id = card-${id};
   card.className = "bg-white rounded-2xl border border-slate-200 shadow-sm p-5";
 
   card.innerHTML = `
-
     <div class="flex justify-between items-start">
-
       <div>
-
-        <p class="text-xs text-slate-400 font-bold">
-          ${escapeHtml(id)}
-        </p>
-
-        <h2 class="text-lg font-bold text-slate-800">
-          ${escapeHtml(sensor.nome || "Sensor")}
-        </h2>
-
-        <p class="text-xs text-slate-500">
-          Cliente: ${escapeHtml(sensor.clientID || "-")}
-        </p>
-
+        <p class="text-xs text-slate-400 font-bold">${escapeHtml(id)}</p>
+        <h2 class="text-lg font-bold text-slate-800">${escapeHtml(sensor.nome || "Sensor")}</h2>
+        <p class="text-xs text-slate-500">Cliente: ${escapeHtml(sensor.clientID || "-")}</p>
       </div>
 
       <div class="flex gap-2">
@@ -685,988 +455,516 @@ function criarCard(id, sensor) {
         </button>
 
       </div>
-
     </div>
 
     <div class="grid grid-cols-2 gap-3 mt-4">
-
       <div id="box-temp-${id}" class="bg-slate-50 rounded-xl p-3 text-center border">
-
         <span class="text-xs text-slate-500">Temperatura</span>
-
-        <div id="temp-${id}" class="text-xl font-bold">
-          -- °C
-        </div>
-
+        <div id="temp-${id}" class="text-xl font-bold">-- °C</div>
         <div id="status-email-temp-${id}" class="text-[10px] text-rose-600 mt-1"></div>
-
       </div>
 
       <div id="box-hum-${id}" class="bg-slate-50 rounded-xl p-3 text-center border">
-
         <span class="text-xs text-slate-500">Umidade</span>
-
-        <div id="hum-${id}" class="text-xl font-bold">
-          -- %
-        </div>
-
+        <div id="hum-${id}" class="text-xl font-bold">-- %</div>
         <div id="status-email-hum-${id}" class="text-[10px] text-rose-600 mt-1"></div>
-
       </div>
-
     </div>
 
     <div id="box-porta-${id}" class="mt-3 bg-slate-50 rounded-xl p-3 border flex justify-between items-center px-4">
-
       <div>
-
         <span class="text-xs text-slate-500">Status da Porta</span>
-
-        <div id="porta-${id}" class="text-sm font-bold text-slate-700">
-          Aguardando leitura...
-        </div>
-
+        <div id="porta-${id}" class="text-sm font-bold text-slate-700">Aguardando leitura...</div>
         <div id="tempo-porta-${id}" class="text-xs text-slate-500"></div>
-
       </div>
 
       <button id="btn-mute-${id}" onclick="silenciarAlarmeBuzzer('${escapeHtml(id)}')"
         class="hidden bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg">
         🔕 Silenciar
       </button>
-
     </div>
 
     <div class="mt-3 px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-500">
-
       Faixa ideal de temperatura:
-
-      <strong>${escapeHtml(tempMin)}°C</strong>
-      a
-      <strong>${escapeHtml(tempMax)}°C</strong>
-
+      <strong>${escapeHtml(tempMin)}°C</strong> a <strong>${escapeHtml(tempMax)}°C</strong>
     </div>
 
     <div class="mt-2 px-3 py-2 bg-slate-50 rounded-lg flex justify-between text-xs text-slate-500">
-
-      <span>
-        Faixa ideal de umidade:
-
-        <strong>${escapeHtml(humMin)}%</strong>
-        a
-        <strong>${escapeHtml(humMax)}%</strong>
+      <span>Faixa ideal de umidade:
+        <strong>${escapeHtml(humMin)}%</strong> a <strong>${escapeHtml(humMax)}%</strong>
       </span>
-
-      <span>
-        Intervalo: <strong>${frequencia}s</strong>
-      </span>
-
+      <span>Intervalo: <strong>${frequencia}s</strong></span>
     </div>
 
     <div class="flex justify-between items-center mt-3 pt-3 border-t">
-
-      <span id="online-${id}" class="text-sm text-rose-600 font-bold">
-        ● Offline
-      </span>
-
-      <span id="seen-${id}" class="text-xs text-slate-500">
-        --
-      </span>
-
+      <span id="online-${id}" class="text-sm text-slate-500">● Offline</span>
+      <span id="seen-${id}" class="text-xs text-slate-500">--</span>
     </div>
 
     <a href="historico.html?id=${encodeURIComponent(id)}"
       class="block text-center bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl py-2.5 mt-3">
       Ver Histórico
     </a>
-
   `;
 
   container.appendChild(card);
 
   atualizarVisibilidadeAdmin();
 
-
   /* TEMPERATURA */
-
-  ouvirRota(sensor.rotaTemp || `sensores/${id}/temp`, valor => {
-
-    const elemento = document.getElementById(`temp-${id}`);
-
+  ouvirRota(sensor.rotaTemp || sensores/${id}/temp, valor => {
+    const elemento = document.getElementById(temp-${id});
     const numero = Number(valor);
 
     if (elemento && Number.isFinite(numero)) {
-
       elemento.textContent = numero.toFixed(1) + " °C";
-
       verificarAlertaCaixas(id, sensor, numero, null);
-
     }
-
   });
-
 
   /* UMIDADE */
-
-  ouvirRota(sensor.rotaHum || `sensores/${id}/hum`, valor => {
-
-    const elemento = document.getElementById(`hum-${id}`);
-
+  ouvirRota(sensor.rotaHum || sensores/${id}/hum, valor => {
+    const elemento = document.getElementById(hum-${id});
     const numero = Number(valor);
 
     if (elemento && Number.isFinite(numero)) {
-
       elemento.textContent = numero.toFixed(1) + " %";
-
       verificarAlertaCaixas(id, sensor, null, numero);
-
     }
-
   });
-
 
   /* ROTA DA PORTA */
-
-  ouvirRota(sensor.rotaPorta || `sensores/${id}/porta_aberta`, valor => {
-
+  ouvirRota(sensor.rotaPorta || sensores/${id}/porta_aberta, valor => {
     atualizarStatusPorta(id, sensor, valor);
-
   });
-
 
   /* ÚLTIMO CONTATO */
-
-  ouvirRota(sensor.rotaLastSeen || `sensores/${id}/last_seen`, valor => {
-
+  ouvirRota(sensor.rotaLastSeen || sensores/${id}/last_seen, valor => {
     atualizarOnline(id, valor);
-
   });
 
-
   /* TEMPO DE PORTA ABERTA */
-
-  ouvirRota(`sensores/${id}/tempo_aberta_segs`, valor => {
-
-    const elemento = document.getElementById(`tempo-porta-${id}`);
+  ouvirRota(sensores/${id}/tempo_aberta_segs, valor => {
+    const elemento = document.getElementById(tempo-porta-${id});
 
     if (!elemento) return;
 
     const segundos = Number(valor);
 
     if (Number.isFinite(segundos) && segundos > 0) {
-
       const minutos = Math.floor(segundos / 60);
-
       const resto = Math.floor(segundos % 60);
-
-      elemento.textContent = `Aberta há ${minutos} min ${resto} s`;
-
+      elemento.textContent = Aberta há ${minutos} min ${resto} s;
     } else {
-
       elemento.textContent = "";
-
     }
-
   });
-
 }
 
-
-/* =====================================================
-   APAGAR SOMENTE O HISTÓRICO DO SENSOR SELECIONADO
-===================================================== */
-
+/* APAGAR SOMENTE O HISTÓRICO DO SENSOR SELECIONADO */
 function apagarHistoricoSensor(id) {
 
   if (!modoAdminAtivo) {
-
     alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
-
     return;
-
   }
 
   const primeiraConfirmacao = confirm(
-
-    `ATENÇÃO!\n\nDeseja realmente apagar TODO o histórico do ${id}?\n\n` +
+    ATENÇÃO!\n\nDeseja realmente apagar TODO o histórico do ${id}?\n\n +
     "Serão excluídos somente os dados históricos armazenados em historico/" + id + ".\n\n" +
     "As configurações e os outros sensores serão preservados."
-
   );
 
   if (!primeiraConfirmacao) return;
 
   const segundaConfirmacao = confirm(
-
-    `CONFIRMAÇÃO FINAL\n\n` +
-    `Você está prestes a apagar permanentemente o histórico do ${id}.\n\n` +
+    CONFIRMAÇÃO FINAL\n\n +
+    Você está prestes a apagar permanentemente o histórico do ${id}.\n\n +
     "Esta operação não poderá ser desfeita.\n\nDeseja continuar?"
-
   );
 
   if (!segundaConfirmacao) return;
 
-  db.ref(`historico/${id}`).remove()
-
+  db.ref(historico/${id}).remove()
     .then(() => {
-
-      alert(`Histórico do ${id} apagado com sucesso.\n\nOs outros sensores não foram alterados.`);
-
+      alert(Histórico do ${id} apagado com sucesso.\n\nOs outros sensores não foram alterados.);
     })
-
     .catch(erro => {
-
       console.error("Erro ao apagar histórico:", erro);
 
       alert(
         "Não foi possível apagar o histórico.\n\n" +
         "Verifique a conexão e as permissões do Firebase."
       );
-
     });
-
 }
 
-
-/* =====================================================
-   INTERPRETAÇÃO DO ESTADO DA PORTA
-===================================================== */
-
+/* INTERPRETAÇÃO DO ESTADO DA PORTA */
 function atualizarStatusPorta(id, sensor, valor) {
-
-  const elemento = document.getElementById(`porta-${id}`);
-
-  const caixa = document.getElementById(`box-porta-${id}`);
-
-  const botao = document.getElementById(`btn-mute-${id}`);
+  const elemento = document.getElementById(porta-${id});
+  const caixa = document.getElementById(box-porta-${id});
+  const botao = document.getElementById(btn-mute-${id});
 
   if (!elemento || !caixa) return;
 
   let aberta = false;
 
   if (typeof valor === "boolean") {
-
     aberta = valor;
-
   } else if (typeof valor === "number") {
-
     aberta = valor === 1;
-
   } else {
-
     const texto = String(valor).trim().toLowerCase();
-
     aberta = ["true", "1", "aberta", "open", "aberto"].includes(texto);
-
   }
 
   const anterior = estadoAnteriorPorta[id];
 
   if (aberta) {
-
     elemento.textContent = "🚪 ABERTA";
-
     elemento.className = "text-sm font-bold text-rose-600";
 
     caixa.className =
       "mt-3 bg-rose-50 rounded-xl p-3 border border-rose-300 flex justify-between items-center px-4";
 
     if (botao) {
-
       botao.classList.remove("hidden");
-
       atualizarBotaoBuzzer(id);
-
     }
 
     if (anterior === false || anterior === undefined) {
-
       dispararNotificacaoLocal(
-        `🚨 Porta aberta: ${sensor.nome || id}`,
-        `A porta do sensor ${id} foi detectada como aberta.`
+        🚨 Porta aberta: ${sensor.nome || id},
+        A porta do sensor ${id} foi detectada como aberta.
       );
-
     }
 
   } else {
-
     elemento.textContent = "🔒 Fechada";
-
     elemento.className = "text-sm font-bold text-emerald-600";
 
     caixa.className =
       "mt-3 bg-emerald-50 rounded-xl p-3 border border-emerald-200 flex justify-between items-center px-4";
 
     if (botao) botao.classList.add("hidden");
-
   }
 
   estadoAnteriorPorta[id] = aberta;
-
 }
 
-
-/* =====================================================
-   BOTÃO PARA SILENCIAR OU REATIVAR BUZZER
-===================================================== */
-
+/* BOTÃO PARA SILENCIAR OU REATIVAR BUZZER */
 function atualizarBotaoBuzzer(id) {
-
-  const botao = document.getElementById(`btn-mute-${id}`);
-
+  const botao = document.getElementById(btn-mute-${id});
   if (!botao) return;
 
-  db.ref(`central_sensores/${id}/silenciarAlarme`).once("value")
-
+  db.ref(central_sensores/${id}/silenciarAlarme).once("value")
     .then(snapshot => {
-
       if (snapshot.val() === true) {
-
         botao.textContent = "🔔 Reativar";
-
-        botao.className =
-          "bg-slate-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg";
-
+        botao.className = "bg-slate-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg";
       } else {
-
         botao.textContent = "🔕 Silenciar";
-
-        botao.className =
-          "bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg";
-
+        botao.className = "bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg";
       }
-
     })
-
     .catch(console.error);
-
 }
-
 
 function silenciarAlarmeBuzzer(id) {
-
-  const referencia = db.ref(`central_sensores/${id}/silenciarAlarme`);
+  const referencia = db.ref(central_sensores/${id}/silenciarAlarme);
 
   referencia.once("value")
-
     .then(snapshot => referencia.set(snapshot.val() !== true))
-
     .then(() => atualizarBotaoBuzzer(id))
-
     .catch(erro => {
-
       console.error(erro);
-
       alert("Não foi possível alterar o buzzer. Verifique a conexão e as permissões do Firebase.");
-
     });
-
 }
 
-
-/* =====================================================
-   NOVO SISTEMA ONLINE/OFFLINE
-===================================================== */
-
-/*
-   Esta função é executada quando o Firebase
-   recebe uma atualização do last_seen.
-
-   Ela apenas registra o último contato.
-   A verificação de ONLINE/OFFLINE é independente.
-*/
-
+/* ESTADO ONLINE/OFFLINE */
 function atualizarOnline(id, timestamp) {
-
   let ts = Number(timestamp);
 
-  if (!Number.isFinite(ts) || ts <= 0) return;
+  if (!Number.isFinite(ts)) return;
 
-  // Aceita timestamp em milissegundos ou segundos
+  if (ts > 100000000000) ts = Math.floor(ts / 1000);
 
-  if (ts > 100000000000) {
+  const diferenca = Math.floor(Date.now() / 1000) - ts;
+  const elemento = document.getElementById(online-${id});
+  const hora = document.getElementById(seen-${id});
 
-    ts = Math.floor(ts / 1000);
+  if (!elemento) return;
 
-  }
-
-  // Guarda o último contato recebido
-
-  ultimoContatoSensor[id] = ts;
-
-  // Atualiza imediatamente o cartão
-
-  verificarEstadoOnline(id);
-
-}
-
-
-/*
-   Verifica se o sensor continua comunicando.
-
-   Não depende de novas mensagens do Firebase.
-*/
-
-function verificarEstadoOnline(id) {
-
-  const ts = ultimoContatoSensor[id];
-
-  const elemento = document.getElementById(`online-${id}`);
-
-  const hora = document.getElementById(`seen-${id}`);
-
-  if (!elemento || !hora) return;
-
-  if (!ts) {
-
-    elemento.textContent = "● Offline";
-
-    elemento.className = "text-sm text-rose-600 font-bold";
-
-    return;
-
-  }
-
-  const agora = Math.floor(Date.now() / 1000);
-
-  const diferenca = agora - ts;
-
-
-  // ONLINE: último contato dentro do limite configurado
-
-  if (
-    diferenca >= -10 &&
-    diferenca <= TEMPO_LIMITE_OFFLINE
-  ) {
-
+  if (diferenca >= -10 && diferenca <= 75) {
     elemento.textContent = "● Online";
-
     elemento.className = "text-sm text-emerald-600 font-bold";
-
   } else {
-
-    // OFFLINE: ultrapassou o tempo máximo sem comunicação
-
     elemento.textContent = "● Offline";
-
     elemento.className = "text-sm text-rose-600 font-bold";
-
   }
 
-
-  // Exibe o horário do último contato recebido
-
-  hora.textContent = new Date(ts * 1000).toLocaleTimeString("pt-BR");
-
+  if (hora) {
+    hora.textContent = new Date(ts * 1000).toLocaleTimeString("pt-BR");
+  }
 }
 
-
-/*
-   MONITORAMENTO AUTOMÁTICO
-
-   A cada 1 segundo a Central verifica todos
-   os sensores cadastrados.
-
-   Assim, mesmo que o Firebase não envie
-   uma nova atualização, o status muda
-   automaticamente para OFFLINE.
-*/
-
-setInterval(() => {
-
-  Object.keys(ultimoContatoSensor).forEach(id => {
-
-    verificarEstadoOnline(id);
-
-  });
-
-}, INTERVALO_VERIFICACAO_ONLINE);
-
-
-/* =====================================================
-   VERIFICAÇÃO DOS LIMITES E ALERTAS
-===================================================== */
-
-function verificarAlertaCaixas(
-  id,
-  sensor,
-  temperaturaForcada = null,
-  umidadeForcada = null
-) {
-
+/* VERIFICAÇÃO DOS LIMITES E ALERTAS */
+function verificarAlertaCaixas(id, sensor, temperaturaForcada = null, umidadeForcada = null) {
   const agora = Date.now();
-
-  const intervalo =
-    Math.max(1, Number(sensor.intervaloAlerta) || 15) * 60000;
-
+  const intervalo = Math.max(1, Number(sensor.intervaloAlerta) || 15) * 60000;
   const email = sensor.emailAlerta;
-
   const nome = sensor.nome || id;
 
-
   function verificar(tipo, valor, minimo, maximo, unidade) {
-
     if (valor === null || !Number.isFinite(Number(valor))) return;
 
-    const caixa = document.getElementById(`box-${tipo}-${id}`);
-
-    const status = document.getElementById(`status-email-${tipo}-${id}`);
+    const caixa = document.getElementById(box-${tipo}-${id});
+    const status = document.getElementById(status-email-${tipo}-${id});
 
     if (!caixa) return;
 
     const fora =
+      (minimo !== null && minimo !== undefined && Number(valor) < Number(minimo)) ||
+      (maximo !== null && maximo !== undefined && Number(valor) > Number(maximo));
 
-      (minimo !== null && minimo !== undefined &&
-        Number(valor) < Number(minimo)) ||
-
-      (maximo !== null && maximo !== undefined &&
-        Number(valor) > Number(maximo));
-
-
-    const chaveAlerta = `ne_alert_${id}_${tipo}`;
-
-    const chaveEmail = `ne_email_${id}_${tipo}`;
-
+    const chaveAlerta = ne_alert_${id}_${tipo};
+    const chaveEmail = ne_email_${id}_${tipo};
 
     if (fora) {
-
-      caixa.className =
-        "bg-rose-50 rounded-xl p-3 text-center border border-rose-300";
-
+      caixa.className = "bg-rose-50 rounded-xl p-3 text-center border border-rose-300";
 
       if (!alertasEmMemoria[chaveAlerta]) {
-
         alertasEmMemoria[chaveAlerta] = true;
 
         dispararNotificacaoLocal(
-
-          `🚨 Alerta ${tipo === "temp" ? "de temperatura" : "de umidade"}: ${nome}`,
-
-          `${id}: ${Number(valor).toFixed(1)}${unidade}, fora da faixa configurada.`
-
+          🚨 Alerta ${tipo === "temp" ? "de temperatura" : "de umidade"}: ${nome},
+          ${id}: ${Number(valor).toFixed(1)}${unidade}, fora da faixa configurada.
         );
-
       }
 
-
-      const ultimoEmail =
-        Number(localStorage.getItem(chaveEmail)) || 0;
-
+      const ultimoEmail = Number(localStorage.getItem(chaveEmail)) || 0;
 
       if (agora - ultimoEmail >= intervalo) {
-
         localStorage.setItem(chaveEmail, String(agora));
 
         dispararEmailAlerta(
-
           email,
-
           nome,
-
-          tipo === "temp"
-            ? "Temperatura Anormal"
-            : "Umidade Anormal",
-
+          tipo === "temp" ? "Temperatura Anormal" : "Umidade Anormal",
           Number(valor).toFixed(1) + unidade
-
         );
 
-        if (status) {
-          status.textContent = "✉️ Solicitação de e-mail realizada";
-        }
-
+        if (status) status.textContent = "✉️ Solicitação de e-mail realizada";
       } else if (status) {
-
-        const restante =
-          Math.ceil((intervalo - (agora - ultimoEmail)) / 60000);
-
-        status.textContent = `⏳ Próximo e-mail em ~${restante} min`;
-
+        const restante = Math.ceil((intervalo - (agora - ultimoEmail)) / 60000);
+        status.textContent = ⏳ Próximo e-mail em ~${restante} min;
       }
 
     } else {
-
-      caixa.className =
-        "bg-slate-50 rounded-xl p-3 text-center border border-slate-100";
-
+      caixa.className = "bg-slate-50 rounded-xl p-3 text-center border border-slate-100";
       alertasEmMemoria[chaveAlerta] = false;
-
       if (status) status.textContent = "";
-
     }
-
   }
 
-
-  const textoTemp =
-    document.getElementById(`temp-${id}`)?.textContent || "";
-
-  const textoHum =
-    document.getElementById(`hum-${id}`)?.textContent || "";
-
+  const textoTemp = document.getElementById(temp-${id})?.textContent || "";
+  const textoHum = document.getElementById(hum-${id})?.textContent || "";
 
   const temperatura = temperaturaForcada !== null
     ? temperaturaForcada
     : parseFloat(textoTemp);
 
-
   const umidade = umidadeForcada !== null
     ? umidadeForcada
     : parseFloat(textoHum);
 
-
   verificar("temp", temperatura, sensor.tempMin, sensor.tempMax, "°C");
-
   verificar("hum", umidade, sensor.humMin, sensor.humMax, "%");
-
 }
 
-
-/* =====================================================
-   ABRIR FORMULÁRIO DE CADASTRO
-===================================================== */
-
+/* ABRIR FORMULÁRIO DE CADASTRO */
 function abrirModal() {
-
   if (!modoAdminAtivo) {
-
     alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
-
     return;
-
   }
 
   editando = false;
 
   document.getElementById("formSensor").reset();
-
   document.getElementById("titulo").textContent = "Novo Sensor";
-
   document.getElementById("id").disabled = false;
 
   document.getElementById("freqRegistro").value = 60;
-
   document.getElementById("intervaloAlerta").value = 15;
-
   document.getElementById("offsetTemp").value = 0;
-
   document.getElementById("offsetHum").value = 0;
-
   document.getElementById("tempoMaxPortaAberta").value = 3;
-
   document.getElementById("buzzerHabilitado").checked = true;
 
-
   ["rotaTemp", "rotaHum", "rotaPorta", "rotaLastSeen"].forEach(campo => {
-
     document.getElementById(campo).value = "";
-
   });
 
-
   document.getElementById("modal").classList.remove("hidden");
-
 }
-
 
 function fecharModal() {
-
   document.getElementById("modal").classList.add("hidden");
-
 }
 
-
-/* =====================================================
-   EDITAR SENSOR
-===================================================== */
-
+/* EDITAR SENSOR */
 function editar(id) {
 
   if (!modoAdminAtivo) {
-
     alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
-
     return;
-
   }
 
-  db.ref(`central_sensores/${id}`).once("value")
-
+  db.ref(central_sensores/${id}).once("value")
     .then(snapshot => {
-
       if (!snapshot.exists()) {
-
         alert("Sensor não encontrado.");
-
         return;
-
       }
 
       const sensor = snapshot.val();
 
       editando = true;
-
-      document.getElementById("titulo").textContent =
-        "Configurações: " + id;
-
+      document.getElementById("titulo").textContent = "Configurações: " + id;
       document.getElementById("id").value = id;
-
       document.getElementById("id").disabled = true;
 
-
       const valores = {
-
         nome: sensor.nome || "",
-
         cliente: sensor.clientID || "",
-
         tempMin: sensor.tempMin ?? "",
-
         tempMax: sensor.tempMax ?? "",
-
         humMin: sensor.humMin ?? "",
-
         humMax: sensor.humMax ?? "",
-
         emailAlerta: sensor.emailAlerta || "",
-
         freqRegistro: sensor.freqRegistro ?? 60,
-
         intervaloAlerta: sensor.intervaloAlerta ?? 15,
-
         offsetTemp: sensor.offsetTemp ?? 0,
-
         offsetHum: sensor.offsetHum ?? 0,
-
         tempoMaxPortaAberta: sensor.tempoMaxPortaAberta ?? 3,
-
-        rotaTemp: sensor.rotaTemp || `sensores/${id}/temp`,
-
-        rotaHum: sensor.rotaHum || `sensores/${id}/hum`,
-
-        rotaPorta: sensor.rotaPorta || `sensores/${id}/porta_aberta`,
-
-        rotaLastSeen: sensor.rotaLastSeen || `sensores/${id}/last_seen`
-
+        rotaTemp: sensor.rotaTemp || sensores/${id}/temp,
+        rotaHum: sensor.rotaHum || sensores/${id}/hum,
+        rotaPorta: sensor.rotaPorta || sensores/${id}/porta_aberta,
+        rotaLastSeen: sensor.rotaLastSeen || sensores/${id}/last_seen
       };
 
-
       Object.entries(valores).forEach(([campo, valor]) => {
-
         document.getElementById(campo).value = valor;
-
       });
-
 
       document.getElementById("buzzerHabilitado").checked =
         sensor.buzzerHabilitado !== false;
 
-
       document.getElementById("modal").classList.remove("hidden");
-
     })
-
     .catch(erro => {
-
       console.error(erro);
-
       alert("Erro ao carregar os dados do sensor.");
-
     });
-
 }
 
-
-/* =====================================================
-   SALVAR CONFIGURAÇÕES
-===================================================== */
-
+/* SALVAR CONFIGURAÇÕES */
 function campoNum(id) {
-
   const valor = document.getElementById(id).value.trim();
 
   if (valor === "") return null;
 
   const numero = Number(valor);
-
   return Number.isFinite(numero) ? numero : null;
-
 }
 
-
 function salvar(event) {
-
   event.preventDefault();
 
   if (!modoAdminAtivo) {
-
     alert("Modo administrativo desativado. Não é possível salvar alterações.");
-
     return;
-
   }
-
 
   const id = formatarIdSensor(document.getElementById("id").value);
 
-
   if (!/^SENSOR_\d{2}$/.test(id)) {
-
     alert("Use o formato SENSOR_01, SENSOR_02, SENSOR_03 etc., conforme o código do ESP32.");
-
     return;
-
   }
 
-
   const dados = {
-
     nome: document.getElementById("nome").value.trim(),
-
     clientID: document.getElementById("cliente").value.trim(),
 
-
     tempMin: campoNum("tempMin"),
-
     tempMax: campoNum("tempMax"),
-
     humMin: campoNum("humMin"),
-
     humMax: campoNum("humMax"),
-
 
     emailAlerta: document.getElementById("emailAlerta").value.trim(),
 
-
     freqRegistro: Math.max(
-
       1,
-
       parseInt(document.getElementById("freqRegistro").value, 10) || 60
-
     ),
-
 
     intervaloAlerta: Math.max(
-
       1,
-
       parseInt(document.getElementById("intervaloAlerta").value, 10) || 15
-
     ),
-
 
     offsetTemp: campoNum("offsetTemp") ?? 0,
-
     offsetHum: campoNum("offsetHum") ?? 0,
 
-
     tempoMaxPortaAberta: Math.max(
-
       1,
-
       parseInt(document.getElementById("tempoMaxPortaAberta").value, 10) || 3
-
     ),
 
+    buzzerHabilitado: document.getElementById("buzzerHabilitado").checked,
 
-    buzzerHabilitado:
-      document.getElementById("buzzerHabilitado").checked,
-
-
-    rotaTemp: normalizarRota(
-      document.getElementById("rotaTemp").value
-    ),
-
-    rotaHum: normalizarRota(
-      document.getElementById("rotaHum").value
-    ),
-
-    rotaPorta: normalizarRota(
-      document.getElementById("rotaPorta").value
-    ),
-
-    rotaLastSeen: normalizarRota(
-      document.getElementById("rotaLastSeen").value
-    )
-
+    rotaTemp: normalizarRota(document.getElementById("rotaTemp").value),
+    rotaHum: normalizarRota(document.getElementById("rotaHum").value),
+    rotaPorta: normalizarRota(document.getElementById("rotaPorta").value),
+    rotaLastSeen: normalizarRota(document.getElementById("rotaLastSeen").value)
   };
 
-
-  if (
-    !dados.rotaTemp ||
-    !dados.rotaHum ||
-    !dados.rotaPorta ||
-    !dados.rotaLastSeen
-  ) {
-
+  if (!dados.rotaTemp || !dados.rotaHum || !dados.rotaPorta || !dados.rotaLastSeen) {
     alert("Preencha todas as rotas do Firebase.");
-
     return;
-
   }
 
-
-  db.ref(`central_sensores/${id}`).update(dados)
-
+  db.ref(central_sensores/${id}).update(dados)
     .then(() => {
-
-      alert(editando
-        ? "Configurações atualizadas!"
-        : "Sensor cadastrado!"
-      );
-
+      alert(editando ? "Configurações atualizadas!" : "Sensor cadastrado!");
       fecharModal();
-
     })
-
     .catch(erro => {
-
       console.error(erro);
-
       alert("Erro ao salvar no Firebase. Verifique a conexão e as permissões.");
-
     });
-
 }
 
-
-/* =====================================================
-   EXCLUIR SENSOR DA CENTRAL
-===================================================== */
-
+/* EXCLUIR SENSOR DA CENTRAL */
 function excluir(id) {
 
   if (!modoAdminAtivo) {
-
     alert("Ative o modo administrativo clicando cinco vezes no nome CENTRAL NEWENERGY.");
-
     return;
-
   }
 
+  if (!confirm(Deseja excluir permanentemente o ${id} da central?)) return;
 
-  if (!confirm(`Deseja excluir permanentemente o ${id} da central?`)) return;
-
-
-  db.ref(`central_sensores/${id}`).remove()
-
-    .then(() => {
-
-      alert("Sensor removido da central.");
-
-    })
-
+  db.ref(central_sensores/${id}).remove()
+    .then(() => alert("Sensor removido da central."))
     .catch(erro => {
-
       console.error(erro);
-
       alert("Erro ao excluir o sensor.");
-
     });
-
 }
-
 </script>
 
 </body>
