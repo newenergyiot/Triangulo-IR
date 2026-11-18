@@ -295,12 +295,95 @@
             padding-right: 5px;
         }
 
+        /* =====================================================
+           RODAPÉ NEWENERGY
+           ===================================================== */
+
+        .footer-newenergy {
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 40px;
+            margin-left: -20px;
+            margin-right: -20px;
+            padding: 28px 20px;
+            text-align: center;
+        }
+
+        .footer-newenergy .footer-nome {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .footer-newenergy .footer-descricao {
+            margin: 5px 0 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .footer-newenergy .footer-desenvolvedor {
+            margin: 18px 0 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .footer-newenergy .footer-contatos {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 12px;
+        }
+
+        .footer-newenergy .footer-contatos a {
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-newenergy .footer-instagram {
+            color: #2563eb;
+        }
+
+        .footer-newenergy .footer-instagram:hover {
+            color: #1e40af;
+        }
+
+        .footer-newenergy .footer-whatsapp {
+            color: #059669;
+        }
+
+        .footer-newenergy .footer-whatsapp:hover {
+            color: #047857;
+        }
+
+        .footer-newenergy .footer-direitos {
+            margin: 18px 0 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
         @media (max-width: 600px) {
             body { padding: 10px; }
             .header-card { padding: 15px; }
             .actions button { width: 100%; }
             .modal-content { padding: 15px; }
             .item { align-items: flex-start; }
+
+            .footer-newenergy {
+                margin-left: -10px;
+                margin-right: -10px;
+                padding: 25px 12px;
+            }
+
+            .footer-newenergy .footer-contatos {
+                flex-direction: column;
+                gap: 12px;
+            }
         }
     </style>
 </head>
@@ -646,11 +729,10 @@ function checarErro(temp, hum) {
 }
 
 /* =========================================================
-   NOVA FUNÇÃO: EXTRAIR TIMESTAMP DOS REGISTROS
+   EXTRAIR TIMESTAMP DOS REGISTROS
    ========================================================= */
 
 function extrairTimestampHistorico(obj, chavePai) {
-    // Primeiro tenta usar o timestamp salvo dentro do registro.
     const direto = obj.timestamp ?? obj.ts;
 
     if (direto !== undefined && direto !== null) {
@@ -661,9 +743,6 @@ function extrairTimestampHistorico(obj, chavePai) {
         }
     }
 
-    // Compatibilidade com chaves antigas e novas:
-    // 1794243840
-    // 1794243840_15
     const correspondencia = String(chavePai ?? "")
         .match(/^(\d{10,13})(?:_|$)/);
 
@@ -805,7 +884,6 @@ async function fetchData(periodo) {
                     return;
                 }
 
-                // CORREÇÃO: aceita timestamp no objeto e chave timestamp_id.
                 let ts = extrairTimestampHistorico(obj, chavePai);
 
                 if (ts === null) return;
@@ -1788,45 +1866,50 @@ function voltarPainel() {
     window.location.href = "admin.html";
 }
 
-    </script>
+</script>
 
-<!-- RODAPÉ NEWENERGY -->
-<footer class="bg-white border-t border-slate-200 mt-10">
-  <div class="max-w-7xl mx-auto px-6 py-6 text-center">
+<!-- =====================================================
+     RODAPÉ NEWENERGY
+     ===================================================== -->
 
-    <p class="text-sm font-bold text-slate-700">
-      NEWENERGY SOLUÇÕES
+<footer class="footer-newenergy">
+
+    <p class="footer-nome">
+        NEWENERGY SOLUÇÕES
     </p>
 
-    <p class="text-xs text-slate-400 mt-1">
-      Automação e Monitoramento Inteligente
+    <p class="footer-descricao">
+        Automação e Monitoramento Inteligente
     </p>
 
-    <p class="text-sm font-semibold text-slate-600 mt-4">
-      Desenvolvido por Alessandro Souza Pereira
+    <p class="footer-desenvolvedor">
+        Desenvolvido por Alessandro Souza Pereira
     </p>
 
-    <div class="flex flex-wrap justify-center items-center gap-5 mt-3">
-      <a href="https://www.instagram.com/newenergy.solcoes/"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="text-blue-600 hover:text-blue-800 text-sm font-semibold transition">
-        📷 @newenergy.solcoes
-      </a>
+    <div class="footer-contatos">
 
-      <a href="https://wa.me/5582987064292"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="text-emerald-600 hover:text-emerald-700 text-sm font-semibold transition">
-        💬 (82) 98706-4292
-      </a>
+        <a
+            href="https://www.instagram.com/newenergy.solcoes/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-instagram">
+            📷 @newenergy.solcoes
+        </a>
+
+        <a
+            href="https://wa.me/5582987064292"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-whatsapp">
+            💬 (82) 98706-4292
+        </a>
+
     </div>
 
-    <p class="text-xs text-slate-400 mt-4">
-      © 2026 NewEnergy. Todos os direitos reservados.
+    <p class="footer-direitos">
+        © 2026 NewEnergy. Todos os direitos reservados.
     </p>
 
-  </div>
 </footer>
 
 </body>
