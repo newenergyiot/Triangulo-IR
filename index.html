@@ -1,34 +1,46 @@
+
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>NewEnergy | Monitoramento Inteligente</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <style>
     :root {
       /* Paleta Panorama Health / High-End Tech */
-      --brand-primary: #1a365d;    /* Azul Marinho Corporativo */
-      --brand-accent: #007aff;     /* Azul Apple/Tech */
-      --bg-light: #f8fafc;         /* Cinza muito claro (fundo) */
-      --text-dark: #1e293b;        /* Texto principal */
-      --text-light: #64748b;       /* Texto secundário */
+      --brand-primary: #1a365d;
+      --brand-accent: #007aff;
+      --bg-light: #f8fafc;
+      --text-dark: #1e293b;
+      --text-light: #64748b;
       --error: #e11d48;
-      --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+      --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05),
+                     0 10px 10px -5px rgba(0, 0, 0, 0.02);
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background-color: var(--bg-light);
-      background-image: radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.03) 0, transparent 50%), 
-                        radial-gradient(at 50% 0%, rgba(26, 54, 93, 0.03) 0, transparent 50%);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.03) 0, transparent 50%),
+        radial-gradient(at 50% 0%, rgba(26, 54, 93, 0.03) 0, transparent 50%);
       color: var(--text-dark);
+
+      min-height: 100vh;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+
+      padding: 30px 16px 0;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -41,6 +53,7 @@
       box-shadow: var(--card-shadow);
       border: 1px solid rgba(0, 0, 0, 0.05);
       text-align: left;
+      margin: auto 0;
     }
 
     .header {
@@ -91,7 +104,6 @@
       border-radius: 8px;
       color: var(--text-dark);
       font-size: 15px;
-      box-sizing: border-box;
       transition: all 0.2s ease;
     }
 
@@ -146,16 +158,105 @@
       text-align: center;
     }
 
-    ::selection { background: rgba(0, 122, 255, 0.2); }
+    /* RODAPÉ NEWENERGY */
+    .newenergy-footer {
+      width: 100%;
+      margin-top: auto;
+      padding: 25px 10px 18px;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .newenergy-footer p {
+      margin: 5px 0;
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    .newenergy-footer .footer-brand {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--brand-primary);
+    }
+
+    .newenergy-footer .footer-author {
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-top: 12px;
+    }
+
+    .newenergy-footer .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px 20px;
+      margin-top: 10px;
+    }
+
+    .newenergy-footer a {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--brand-accent);
+      transition: color 0.2s ease;
+    }
+
+    .newenergy-footer a:hover {
+      color: var(--brand-primary);
+      text-decoration: underline;
+    }
+
+    ::selection {
+      background: rgba(0, 122, 255, 0.2);
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 20px 14px 0;
+      }
+
+      .card {
+        padding: 35px 24px;
+      }
+
+      .newenergy-footer {
+        padding: 20px 8px 15px;
+      }
+    }
+
+    @media (max-height: 650px) {
+      body {
+        padding-top: 15px;
+      }
+
+      .card {
+        padding-top: 28px;
+        padding-bottom: 28px;
+      }
+
+      .header {
+        margin-bottom: 22px;
+      }
+
+      .footer-note {
+        margin-top: 20px;
+        padding-top: 16px;
+      }
+    }
   </style>
 
-  <!-- SDK Firebase v9 (Compat) para garantir estabilidade com o Auth original -->
+  <!-- Firebase SDK v9 Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 </head>
+
 <body>
 
   <main class="card">
+
     <div class="header">
       <div class="logo-badge">Industrial Intelligence</div>
       <h1>NewEnergy</h1>
@@ -166,12 +267,20 @@
 
     <div class="input-group">
       <label for="email">E-mail Corporativo</label>
-      <input type="email" id="email" placeholder="exemplo@empresa.com.br" autocomplete="username">
+      <input
+        type="email"
+        id="email"
+        placeholder="exemplo@empresa.com.br"
+        autocomplete="username">
     </div>
 
     <div class="input-group">
       <label for="password">Senha de Acesso</label>
-      <input type="password" id="password" placeholder="Digite sua senha" autocomplete="current-password">
+      <input
+        type="password"
+        id="password"
+        placeholder="Digite sua senha"
+        autocomplete="current-password">
     </div>
 
     <button id="btnLogin">Entrar no Sistema</button>
@@ -179,21 +288,23 @@
     <div class="footer-note">
       &copy; 2026 NewEnergy Solutions • Infraestrutura Crítica
     </div>
+
   </main>
 
   <script>
-    // Configuração do Firebase corrigida e autenticada
+    // Configuração do Firebase
     const firebaseConfig = {
-  apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
-  authDomain: "triangulo-ir.firebaseapp.com",
-  databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
-  projectId: "triangulo-ir",
-  storageBucket: "triangulo-ir.firebasestorage.app",
-  messagingSenderId: "24231298396",
-  appId: "1:24231298396:web:f218f281137628a2fdad99"
-};
-    
+      apiKey: "AIzaSyBqCEDAxGfhOBaDRaC7NrW06WCzAXnAgiY",
+      authDomain: "triangulo-ir.firebaseapp.com",
+      databaseURL: "https://triangulo-ir-default-rtdb.firebaseio.com",
+      projectId: "triangulo-ir",
+      storageBucket: "triangulo-ir.firebasestorage.app",
+      messagingSenderId: "24231298396",
+      appId: "1:24231298396:web:f218f281137628a2fdad99"
+    };
+
     firebase.initializeApp(firebaseConfig);
+
     const auth = firebase.auth();
 
     const emailEl = document.getElementById("email");
@@ -201,16 +312,20 @@
     const btnLogin = document.getElementById("btnLogin");
     const errorEl = document.getElementById("error");
 
-    // Monitora o estado de autenticação para redirecionar se já logado
+    // Monitora o estado de autenticação
     auth.onAuthStateChanged(user => {
-      if (user) window.location.href = "admin.html";
+      if (user) {
+        window.location.href = "admin.html";
+      }
     });
 
+    // Login
     btnLogin.addEventListener("click", () => {
+
       const email = emailEl.value.trim();
       const pass = passEl.value;
 
-      if(!email || !pass) {
+      if (!email || !pass) {
         showError("Preencha todos os campos para prosseguir.");
         return;
       }
@@ -223,63 +338,62 @@
         .then(() => {
           window.location.href = "admin.html";
         })
-        .catch(err => { 
+        .catch(err => {
+          console.error("Erro de autenticação:", err);
+
           btnLogin.innerText = "Entrar no Sistema";
           btnLogin.disabled = false;
-          showError("Acesso negado. Verifique suas credenciais."); 
+
+          showError("Acesso negado. Verifique suas credenciais.");
         });
     });
 
+    // Exibição de erros
     function showError(msg) {
       errorEl.textContent = msg;
       errorEl.style.display = "block";
     }
 
-    // Atalho de teclado para a tecla Enter
+    // Atalho de teclado para Enter
     document.addEventListener("keypress", (e) => {
-      if(e.key === "Enter") btnLogin.click();
+      if (e.key === "Enter") {
+        btnLogin.click();
+      }
     });
+  </script>
 
-    </script>
+  <!-- RODAPÉ NEWENERGY -->
+  <footer class="newenergy-footer">
 
-<!-- RODAPÉ NEWENERGY -->
-<footer class="bg-white border-t border-slate-200 mt-10">
-  <div class="max-w-7xl mx-auto px-6 py-6 text-center">
+    <p class="footer-brand">NEWENERGY SOLUÇÕES</p>
 
-    <p class="text-sm font-bold text-slate-700">
-      NEWENERGY SOLUÇÕES
-    </p>
+    <p>Automação e Monitoramento Inteligente</p>
 
-    <p class="text-xs text-slate-400 mt-1">
-      Automação e Monitoramento Inteligente
-    </p>
-
-    <p class="text-sm font-semibold text-slate-600 mt-4">
+    <p class="footer-author">
       Desenvolvido por Alessandro Souza Pereira
     </p>
 
-    <div class="flex flex-wrap justify-center items-center gap-5 mt-3">
-      <a href="https://www.instagram.com/newenergy.solcoes/"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="text-blue-600 hover:text-blue-800 text-sm font-semibold transition">
+    <div class="footer-links">
+
+      <a
+        href="https://www.instagram.com/newenergy.solcoes/"
+        target="_blank"
+        rel="noopener noreferrer">
         📷 @newenergy.solcoes
       </a>
 
-      <a href="https://wa.me/5582987064292"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="text-emerald-600 hover:text-emerald-700 text-sm font-semibold transition">
+      <a
+        href="https://wa.me/5582987064292"
+        target="_blank"
+        rel="noopener noreferrer">
         💬 (82) 98706-4292
       </a>
+
     </div>
 
-    <p class="text-xs text-slate-400 mt-4">
-      © 2026 NewEnergy. Todos os direitos reservados.
-    </p>
+    <p>© 2026 NewEnergy. Todos os direitos reservados.</p>
 
-  </div>
-</footer>
+  </footer>
 
 </body>
 </html>
