@@ -1,0 +1,1880 @@
+
+#include <WiFiManager.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include "time.h"
+#include <Wire.h>
+#include <Adafruit_SHT4x.h>
+#include <Preferences.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/queue.h>
+
+// =====================================================
+// IDENTIFICACAO DO SENSOR
+// =====================================================
+#define SENSOR_NUM 10
+
+// =====================================================
+// HARDWARE E PINOS
+// =====================================================
+#define PIN_PORTA 13
+#define PIN_BUZZER 4
+
+const unsigned long REBOOT_INTERVAL = 604800000UL;
+unsigned long inicioSistemaMs = 0;
+
+// =====================================================
+// FIREBASE
+// =====================================================
+String SENSOR_ID;
+String ROTA_TEMP;
+String ROTA_HUM;
+String ROTA_SEEN;
+String ROTA_CONFIG_SENSOR;
+String ROTA_HISTORICO_BASE;
+String ROTA_PORTA_ESTADO;
+String ROTA_PORTA_TEMPO;
+String ROTA_PORTA_HISTORICO;
+
+const char* FIREBASE_HOST =
+  "triangulo-ir-default-rtdb.firebaseio.com";
+
+// Insira uma credencial NOVA do Firebase.
+// Não compartilhe nem publique esta chave.
+const char* FIREBASE_TOKEN =
+  "hNB3bkE4KlQ94WsHwS8DqcEpoKeJKBu9wFUxL0s4";
+
+// =====================================================
+// OBJETOS
+// =====================================================
+Adafruit_SHT4x sht4;
+bool shtInicializado = false;
+
+Preferences preferences;
+WiFiManager wm;
+
+// =====================================================
+// BUFFER OFFLINE
+// =====================================================
+const uint32_t VERSAO_ESTRUTURA = 0x31303339;
+const uint32_t VERSAO_ESTRUTURA_ANTIGA_1 = 0x31303334;
+const uint32_t VERSAO_ESTRUTURA_ANTIGA_2 = 0x31303336;
+const uint32_t VERSAO_ESTRUTURA_ANTIGA_3 = 0x31303337;
+const uint32_t VERSAO_ESTRUTURA_ANTIGA_4 = 0x31303338;
+
+struct LeituraOffline {
+  float temp;
+  float hum;
+  bool portaAberta;
+  unsigned long tempoPortaSegs;
+  time_t timestamp;
+  bool horarioEstimado;
+  unsigned long idUnico;
+};
+
+struct EventoPortaOffline {
+  unsigned long duracaoSegs;
+  time_t timestamp;
+  unsigned long idUnico;
+  bool horarioEstimado;
+};
+
+const int MAX_OFFLINE = 100;
+LeituraOffline bufferOffline[MAX_OFFLINE];
+int totalOffline = 0;
+
+const int MAX_PORTA_OFFLINE = 30;
+EventoPortaOffline bufferPortaOffline[MAX_PORTA_OFFLINE];
+int totalPortaOffline = 0;
+
+unsigned long proximoIdEvento = 1;
+
+// =====================================================
+// TEMPOS DO SISTEMA
+// =====================================================
+unsigned long lastRealtime = 0;
+unsigned long lastHistorico = 0;
+unsigned long lastConfig = 0;
+unsigned long lastLeituraSht = 0;
+unsigned long lastHeartbeat = 0;
+
+const unsigned long INTERVALO_HEARTBEAT = 30000UL;
+const unsigned long INTERVALO_CONSULTA_CONFIG = 30000UL;
+
+unsigned long intervalRealtime = 3000;
+unsigned long intervalHistorico = 60000;
+
+long ultimaFreqRegistradaNoFirebase = -1;
+
+// =====================================================
+// LEITURAS DO SHT41
+// =====================================================
+float tempAtual = NAN;
+float humAtual = NAN;
+
+unsigned long ultimaLeituraValidaMs = 0;
+
+float offsetTemp = 0.0;
+float offsetHum = 0.0;
+
+// =====================================================
+// CONFIGURACOES DO ALARME
+// =====================================================
+volatile unsigned long tempoMaxPortaSegs = 180;
+volatile bool buzzerHabilitado = true;
+volatile bool silenciarAlarme = false;
+
+// =====================================================
+// WIFI
+// =====================================================
+bool portalAtivo = false;
+unsigned long tempoInicioPortal = 0;
+
+const unsigned long TIMEOUT_PORTAL_MS = 600000UL;
+const unsigned long TEMPO_CONEXAO_INICIAL = 20000UL;
+const unsigned long INTERVALO_TENTATIVA_WIFI = 15000UL;
+
+const unsigned long CONFIRMAR_WIFI_CONECTADO_MS = 2000UL;
+const unsigned long CONFIRMAR_WIFI_DESCONECTADO_MS = 8000UL;
+
+unsigned long lastWifiRetry = 0;
+unsigned long inicioWifiConectado = 0;
+unsigned long inicioWifiDesconectado = 0;
+
+bool online = false;
+bool firebaseDisponivel = false;
+
+unsigned long ultimoSucessoFirebaseMs = 0;
+
+volatile bool eventoWifiConectado = false;
+volatile bool eventoWifiDesconectado = false;
+volatile int motivoDesconexaoWifi = 0;
+
+// =====================================================
+// CONTROLE DA PORTA
+// =====================================================
+bool portaAbertaEstavel = false;
+
+unsigned long inicioAberturaMs = 0;
+unsigned long lastAtualizacaoTempoPorta = 0;
+
+time_t timestampAberturaReal = 0;
+
+const unsigned long DEBOUNCE_DELAY_MS = 50;
+
+// =====================================================
+// FILA DE EVENTOS DA PORTA
+// =====================================================
+// A tarefa dedicada detecta as transicoes.
+// O loop principal processa os eventos recebidos.
+struct EventoPorta {
+  bool aberta;
+  uint32_t instanteMs;
+  uint32_t duracaoSegs;
+  time_t timestamp;
+};
+
+QueueHandle_t filaEventosPorta = NULL;
+TaskHandle_t tarefaPortaHandle = NULL;
+
+const uint8_t TAMANHO_FILA_PORTA = 32;
+
+// =====================================================
+// PENDENCIAS FIREBASE
+// =====================================================
+bool pendenciaEstadoPorta = false;
+bool valorDesejadoPorta = false;
+
+bool pendenciaSincronizacaoInicial = true;
+bool pendenciaResetWifi = false;
+
+bool pendenciaTempoReal = false;
+bool pendenciaTempoPorta = false;
+bool pendenciaHeartbeat = false;
+bool pendenciaConsultaConfig = false;
+
+unsigned long tempoPortaAtualEnvio = 0;
+
+// =====================================================
+// BACKOFF FIREBASE
+// =====================================================
+unsigned long proximaTentativaFirebaseMs = 0;
+unsigned long atrasoBackoffMs = 2000;
+
+void registrarFalhaRede() {
+  proximaTentativaFirebaseMs =
+    millis() + atrasoBackoffMs;
+
+  atrasoBackoffMs = min(
+    atrasoBackoffMs * 2,
+    15000UL
+  );
+}
+
+void registrarSucessoRede() {
+  atrasoBackoffMs = 2000;
+  proximaTentativaFirebaseMs = 0;
+}
+
+// =====================================================
+// PROTOTIPOS
+// =====================================================
+bool horarioSincronizado();
+time_t obterTimestampSeguro();
+void salvarEstadoAberturaFlash(bool aberta, time_t ts);
+void salvarEventoPortaOffline(unsigned long duracao, time_t ts);
+void monitorarPorta();
+void tarefaMonitoramentoPorta(void *parameter);
+
+// =====================================================
+// EVENTOS DO WIFI
+// =====================================================
+void eventoWiFi(WiFiEvent_t evento, WiFiEventInfo_t info) {
+  switch (evento) {
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      eventoWifiConectado = true;
+      eventoWifiDesconectado = false;
+      break;
+
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      motivoDesconexaoWifi =
+        info.wifi_sta_disconnected.reason;
+
+      eventoWifiDesconectado = true;
+      eventoWifiConectado = false;
+      break;
+
+    default:
+      break;
+  }
+}
+
+// =====================================================
+// TAREFA UNICA DE MONITORAMENTO DA PORTA E BUZZER
+// =====================================================
+// Esta e a unica funcao que le diretamente o GPIO13
+// durante a operacao normal.
+//
+// O loop principal NAO faz mais digitalRead(PIN_PORTA).
+// =====================================================
+const unsigned long TEMPO_BIPE_MS = 150;
+const unsigned long PAUSA_ALARME_MS = 5000;
+
+void tarefaMonitoramentoPorta(void *parameter) {
+  bool leituraCandidata =
+    (digitalRead(PIN_PORTA) == HIGH);
+
+  bool portaEstavel = portaAbertaEstavel;
+
+  unsigned long ultimaMudanca = millis();
+
+  unsigned long inicioPorta =
+    portaEstavel ? inicioAberturaMs : 0;
+
+  int etapa = 0;
+  bool cicloAtivo = false;
+  unsigned long inicioEtapa = 0;
+
+  digitalWrite(PIN_BUZZER, LOW);
+
+  for (;;) {
+    unsigned long agora = millis();
+
+    // -----------------------------------------------
+    // LEITURA FISICA UNICA DO REED SWITCH
+    // -----------------------------------------------
+    bool leituraPino =
+      (digitalRead(PIN_PORTA) == HIGH);
+
+    if (leituraPino != leituraCandidata) {
+      leituraCandidata = leituraPino;
+      ultimaMudanca = agora;
+    }
+
+    // -----------------------------------------------
+    // DEBOUNCE CENTRALIZADO
+    // -----------------------------------------------
+    if (
+      (uint32_t)(agora - ultimaMudanca) >=
+      DEBOUNCE_DELAY_MS
+    ) {
+      if (leituraCandidata != portaEstavel) {
+        portaEstavel = leituraCandidata;
+
+        EventoPorta evento;
+        evento.aberta = portaEstavel;
+        evento.instanteMs = agora;
+        evento.duracaoSegs = 0;
+        evento.timestamp = obterTimestampSeguro();
+
+        if (portaEstavel) {
+          // PORTA ABRIU
+          inicioPorta = agora;
+
+          // Se o horario ainda nao estiver sincronizado,
+          // o loop principal fara a recuperacao depois do NTP.
+          evento.timestamp = obterTimestampSeguro();
+
+          Serial.println("[PORTA] Abertura detectada pela tarefa.");
+
+        } else {
+          // PORTA FECHOU
+          if (inicioPorta > 0) {
+            evento.duracaoSegs =
+              (uint32_t)(agora - inicioPorta) / 1000UL;
+          }
+
+          inicioPorta = 0;
+
+          cicloAtivo = false;
+          etapa = 0;
+
+          digitalWrite(PIN_BUZZER, LOW);
+
+          Serial.println("[PORTA] Fechamento detectado pela tarefa.");
+        }
+
+        // ---------------------------------------------
+        // ENVIO DO EVENTO PARA O LOOP PRINCIPAL
+        // ---------------------------------------------
+        // Timeout curto para nao bloquear indefinidamente
+        // a leitura do reed switch.
+        if (
+          filaEventosPorta != NULL &&
+          xQueueSend(
+            filaEventosPorta,
+            &evento,
+            pdMS_TO_TICKS(100)
+          ) != pdPASS
+        ) {
+          Serial.println(
+            "[ERRO] Fila de eventos da porta cheia. Evento nao enfileirado."
+          );
+        }
+      }
+    }
+
+    // -----------------------------------------------
+    // CONTROLE DO BUZZER
+    // -----------------------------------------------
+    bool deveAlarmar = false;
+
+    unsigned long limiteAlarme = tempoMaxPortaSegs;
+    bool habilitado = buzzerHabilitado;
+    bool silenciado = silenciarAlarme;
+
+    if (portaEstavel && inicioPorta > 0) {
+      unsigned long tempoAberta =
+        (uint32_t)(agora - inicioPorta) / 1000UL;
+
+      if (
+        tempoAberta >= limiteAlarme &&
+        habilitado &&
+        !silenciado
+      ) {
+        deveAlarmar = true;
+      }
+    }
+
+    if (!deveAlarmar) {
+      digitalWrite(PIN_BUZZER, LOW);
+
+      cicloAtivo = false;
+      etapa = 0;
+
+      vTaskDelay(pdMS_TO_TICKS(5));
+      continue;
+    }
+
+    if (!cicloAtivo) {
+      cicloAtivo = true;
+      etapa = 0;
+      inicioEtapa = agora;
+
+      digitalWrite(PIN_BUZZER, HIGH);
+    }
+
+    unsigned long duracaoEtapa = TEMPO_BIPE_MS;
+
+    if (etapa == 5) {
+      duracaoEtapa = PAUSA_ALARME_MS;
+    }
+
+    if (
+      (uint32_t)(agora - inicioEtapa) >=
+      duracaoEtapa
+    ) {
+      inicioEtapa = agora;
+      etapa++;
+
+      if (etapa > 5) {
+        etapa = 0;
+      }
+
+      if (
+        etapa == 0 ||
+        etapa == 2 ||
+        etapa == 4
+      ) {
+        digitalWrite(PIN_BUZZER, HIGH);
+      } else {
+        digitalWrite(PIN_BUZZER, LOW);
+      }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+
+// =====================================================
+// TIMESTAMP NTP
+// =====================================================
+bool horarioSincronizado() {
+  time_t agora = time(NULL);
+  return (agora > 1700000000UL);
+}
+
+time_t obterTimestampSeguro() {
+  time_t agora = time(NULL);
+
+  if (agora > 1700000000UL) {
+    return agora;
+  }
+
+  return 0;
+}
+
+// =====================================================
+// FLASH - SALVAR BUFFERS
+// =====================================================
+void salvarBufferNaFlash() {
+  preferences.begin("offline_data", false);
+
+  preferences.putUInt("version", VERSAO_ESTRUTURA);
+  preferences.putULong("next_id", proximoIdEvento);
+  preferences.putInt("total", totalOffline);
+
+  if (totalOffline > 0) {
+    preferences.putBytes(
+      "buffer",
+      bufferOffline,
+      sizeof(LeituraOffline) * totalOffline
+    );
+  }
+
+  preferences.putInt("total_porta", totalPortaOffline);
+
+  if (totalPortaOffline > 0) {
+    preferences.putBytes(
+      "buffer_porta",
+      bufferPortaOffline,
+      sizeof(EventoPortaOffline) * totalPortaOffline
+    );
+  }
+
+  preferences.end();
+}
+
+// =====================================================
+// FLASH - CARREGAR BUFFERS
+// =====================================================
+void carregarBufferDasFlash() {
+  preferences.begin("offline_data", false);
+
+  uint32_t versaoSalva =
+    preferences.getUInt("version", 0);
+
+  if (
+    versaoSalva != VERSAO_ESTRUTURA &&
+    versaoSalva != VERSAO_ESTRUTURA_ANTIGA_1 &&
+    versaoSalva != VERSAO_ESTRUTURA_ANTIGA_2 &&
+    versaoSalva != VERSAO_ESTRUTURA_ANTIGA_3 &&
+    versaoSalva != VERSAO_ESTRUTURA_ANTIGA_4 &&
+    versaoSalva != 0
+  ) {
+    Serial.println(
+      "[OFFLINE] Versao desconhecida. Preservando buffers."
+    );
+  }
+
+  proximoIdEvento =
+    preferences.getULong("next_id", 1);
+
+  timestampAberturaReal =
+    preferences.getLong("abertura_ts", 0);
+
+  int tOff = preferences.getInt("total", 0);
+
+  if (tOff > 0 && tOff <= MAX_OFFLINE) {
+    size_t bytesEsperados =
+      sizeof(LeituraOffline) * tOff;
+
+    if (
+      preferences.getBytesLength("buffer") ==
+      bytesEsperados
+    ) {
+      preferences.getBytes(
+        "buffer",
+        bufferOffline,
+        bytesEsperados
+      );
+
+      totalOffline = tOff;
+    } else {
+      totalOffline = 0;
+    }
+  }
+
+  int tPorta = preferences.getInt("total_porta", 0);
+
+  if (tPorta > 0 && tPorta <= MAX_PORTA_OFFLINE) {
+    size_t bytesEsperadosPorta =
+      sizeof(EventoPortaOffline) * tPorta;
+
+    if (
+      preferences.getBytesLength("buffer_porta") ==
+      bytesEsperadosPorta
+    ) {
+      preferences.getBytes(
+        "buffer_porta",
+        bufferPortaOffline,
+        bytesEsperadosPorta
+      );
+
+      totalPortaOffline = tPorta;
+    } else {
+      totalPortaOffline = 0;
+    }
+  }
+
+  preferences.putUInt("version", VERSAO_ESTRUTURA);
+  preferences.end();
+}
+
+// =====================================================
+// SALVAR ESTADO DA ABERTURA
+// =====================================================
+void salvarEstadoAberturaFlash(bool aberta, time_t ts) {
+  preferences.begin("offline_data", false);
+
+  if (aberta && ts > 0) {
+    preferences.putUInt("version", VERSAO_ESTRUTURA);
+    preferences.putLong("abertura_ts", (long)ts);
+  } else {
+    preferences.remove("abertura_ts");
+  }
+
+  preferences.end();
+}
+
+// =====================================================
+// INICIALIZAR ESTADO DA PORTA NO BOOT
+// =====================================================
+void inicializarEstadoPortaNoBoot() {
+  bool estadoFisicoAberto =
+    (digitalRead(PIN_PORTA) == HIGH);
+
+  if (!estadoFisicoAberto) {
+    portaAbertaEstavel = false;
+    inicioAberturaMs = millis();
+    timestampAberturaReal = 0;
+
+    salvarEstadoAberturaFlash(false, 0);
+  } else {
+    portaAbertaEstavel = true;
+
+    if (
+      timestampAberturaReal > 0 &&
+      horarioSincronizado()
+    ) {
+      time_t agora = time(NULL);
+
+      if (agora > timestampAberturaReal) {
+        unsigned long diffSegs =
+          (unsigned long)(agora - timestampAberturaReal);
+
+        if (diffSegs < 604800UL) {
+          inicioAberturaMs =
+            millis() - (diffSegs * 1000UL);
+        } else {
+          inicioAberturaMs = millis();
+        }
+      } else {
+        inicioAberturaMs = millis();
+      }
+    } else {
+      inicioAberturaMs = millis();
+    }
+  }
+
+  lastAtualizacaoTempoPorta = millis();
+}
+
+// =====================================================
+// RECUPERACAO DA PORTA APOS NTP
+// =====================================================
+void verificarRecuperacaoPortaPosNTP() {
+  static bool recuperacaoExecutada = false;
+
+  if (recuperacaoExecutada) return;
+
+  if (horarioSincronizado()) {
+    recuperacaoExecutada = true;
+
+    // Nao fazemos digitalRead aqui.
+    // O estado vem da tarefa unica de monitoramento.
+    if (portaAbertaEstavel) {
+      if (timestampAberturaReal == 0) {
+        unsigned long tempoDecorrido =
+          (millis() - inicioAberturaMs) / 1000UL;
+
+        timestampAberturaReal =
+          time(NULL) - tempoDecorrido;
+
+        salvarEstadoAberturaFlash(
+          true,
+          timestampAberturaReal
+        );
+      } else {
+        time_t agora = time(NULL);
+
+        if (agora > timestampAberturaReal) {
+          unsigned long diffSegs =
+            (unsigned long)(agora - timestampAberturaReal);
+
+          if (diffSegs < 604800UL) {
+            inicioAberturaMs =
+              millis() - (diffSegs * 1000UL);
+          }
+        }
+      }
+    } else {
+      preferences.begin("offline_data", false);
+      preferences.remove("abertura_ts");
+      preferences.end();
+
+      timestampAberturaReal = 0;
+    }
+  }
+}
+
+// =====================================================
+// WIFI - MANUTENCAO
+// =====================================================
+void manterWiFi() {
+  unsigned long agora = millis();
+
+  if (eventoWifiConectado) {
+    eventoWifiConectado = false;
+
+    inicioWifiConectado = agora;
+    inicioWifiDesconectado = 0;
+
+    Serial.println("[WIFI] Evento de conexao recebido.");
+  }
+
+  if (eventoWifiDesconectado) {
+    eventoWifiDesconectado = false;
+
+    if (inicioWifiDesconectado == 0) {
+      inicioWifiDesconectado = agora;
+    }
+
+    inicioWifiConectado = 0;
+
+    Serial.print("[WIFI] Evento de desconexao. Motivo: ");
+    Serial.println(motivoDesconexaoWifi);
+  }
+
+  if (portalAtivo) {
+    wm.process();
+
+    if (
+      (millis() - tempoInicioPortal) >=
+      TIMEOUT_PORTAL_MS
+    ) {
+      Serial.println("[WIFI] Portal expirou. Reiniciando.");
+
+      wm.stopConfigPortal();
+      delay(500);
+      ESP.restart();
+    }
+  }
+
+  bool wifiConectado =
+    (WiFi.status() == WL_CONNECTED);
+
+  agora = millis();
+
+  if (wifiConectado) {
+    inicioWifiDesconectado = 0;
+
+    if (inicioWifiConectado == 0) {
+      inicioWifiConectado = agora;
+    }
+
+    if (portalAtivo) {
+      wm.stopConfigPortal();
+      portalAtivo = false;
+      WiFi.mode(WIFI_STA);
+
+      Serial.println("[WIFI] Portal encerrado apos conexao.");
+    }
+
+    if (
+      !online &&
+      (agora - inicioWifiConectado) >=
+      CONFIRMAR_WIFI_CONECTADO_MS
+    ) {
+      online = true;
+
+      pendenciaSincronizacaoInicial = true;
+      pendenciaConsultaConfig = true;
+      pendenciaHeartbeat = true;
+
+      proximaTentativaFirebaseMs = 0;
+      atrasoBackoffMs = 2000;
+
+      lastWifiRetry = agora;
+
+      Serial.println("[WIFI] Conectado. Validando Firebase.");
+
+      Serial.print("[WIFI] IP: ");
+      Serial.println(WiFi.localIP());
+    }
+
+    return;
+  }
+
+  inicioWifiConectado = 0;
+
+  if (inicioWifiDesconectado == 0) {
+    inicioWifiDesconectado = agora;
+  }
+
+  if (
+    online &&
+    (agora - inicioWifiDesconectado) >=
+    CONFIRMAR_WIFI_DESCONECTADO_MS
+  ) {
+    online = false;
+
+    Serial.println("[WIFI] OFFLINE confirmado.");
+  }
+
+  if (portalAtivo) return;
+
+  if (
+    (agora - lastWifiRetry) >=
+    INTERVALO_TENTATIVA_WIFI
+  ) {
+    Serial.println("[WIFI] Tentando recuperar rede salva.");
+
+    lastWifiRetry = agora;
+
+    if (!WiFi.reconnect()) {
+      WiFi.begin();
+    }
+  }
+}
+
+// =====================================================
+// DIAGNOSTICO FIREBASE
+// =====================================================
+void registrarResultadoFirebase(
+  const char* operacao,
+  const String& path,
+  int codigo,
+  unsigned long duracaoMs
+) {
+  Serial.print("[FIREBASE] ");
+  Serial.print(operacao);
+  Serial.print(" | ");
+  Serial.print(path);
+  Serial.print(" | HTTP: ");
+  Serial.print(codigo);
+  Serial.print(" | tempo: ");
+  Serial.print(duracaoMs);
+  Serial.print(" ms | ");
+
+  if (codigo >= 200 && codigo < 300) {
+    firebaseDisponivel = true;
+    ultimoSucessoFirebaseMs = millis();
+    Serial.println("SUCESSO");
+  } else {
+    firebaseDisponivel = false;
+
+    if (codigo < 0) {
+      Serial.print("FALHA DE TRANSPORTE: ");
+      Serial.println(HTTPClient::errorToString(codigo));
+    } else {
+      Serial.println("ERRO HTTP");
+    }
+  }
+}
+
+// =====================================================
+// FIREBASE PUT
+// =====================================================
+bool firebasePUT(String path, String value) {
+  if (!online || WiFi.status() != WL_CONNECTED) {
+    Serial.println("[FIREBASE] PUT cancelado: Wi-Fi indisponivel.");
+    return false;
+  }
+
+  String rotaLog = path;
+
+  if (!path.endsWith(".json")) {
+    path += ".json";
+  }
+
+  HTTPClient http;
+
+  String url =
+    "https://" + String(FIREBASE_HOST) +
+    path + "?auth=" + String(FIREBASE_TOKEN);
+
+  unsigned long inicio = millis();
+
+  http.setConnectTimeout(5000);
+  http.setTimeout(5000);
+
+  if (!http.begin(url)) {
+    registrarResultadoFirebase(
+      "PUT", rotaLog, -1, millis() - inicio
+    );
+
+    http.end();
+    return false;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+
+  int codigo = http.PUT(value);
+  unsigned long duracao = millis() - inicio;
+
+  registrarResultadoFirebase(
+    "PUT", rotaLog, codigo, duracao
+  );
+
+  http.end();
+
+  return (codigo >= 200 && codigo < 300);
+}
+
+// =====================================================
+// FIREBASE PATCH
+// =====================================================
+bool firebasePATCH(String path, String jsonValue) {
+  if (!online || WiFi.status() != WL_CONNECTED) {
+    Serial.println("[FIREBASE] PATCH cancelado: Wi-Fi indisponivel.");
+    return false;
+  }
+
+  String rotaLog = path;
+
+  if (!path.endsWith(".json")) {
+    path += ".json";
+  }
+
+  HTTPClient http;
+
+  String url =
+    "https://" + String(FIREBASE_HOST) +
+    path + "?auth=" + String(FIREBASE_TOKEN);
+
+  unsigned long inicio = millis();
+
+  http.setConnectTimeout(5000);
+  http.setTimeout(5000);
+
+  if (!http.begin(url)) {
+    registrarResultadoFirebase(
+      "PATCH", rotaLog, -1, millis() - inicio
+    );
+
+    http.end();
+    return false;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+
+  int codigo = http.PATCH(jsonValue);
+  unsigned long duracao = millis() - inicio;
+
+  registrarResultadoFirebase(
+    "PATCH", rotaLog, codigo, duracao
+  );
+
+  http.end();
+
+  return (codigo >= 200 && codigo < 300);
+}
+
+// =====================================================
+// SALVAR LEITURA OFFLINE
+// =====================================================
+void salvarLeituraOffline(
+  float t,
+  float h,
+  bool porta,
+  unsigned long tempoPorta,
+  time_t ts
+) {
+  bool estimado = !horarioSincronizado();
+
+  time_t tsFinal =
+    (ts > 1700000000UL)
+    ? ts
+    : (horarioSincronizado()
+       ? time(NULL)
+       : (millis() / 1000));
+
+  if (totalOffline >= MAX_OFFLINE) {
+    for (int i = 0; i < MAX_OFFLINE - 1; i++) {
+      bufferOffline[i] = bufferOffline[i + 1];
+    }
+
+    totalOffline = MAX_OFFLINE - 1;
+  }
+
+  bufferOffline[totalOffline].temp = t;
+  bufferOffline[totalOffline].hum = h;
+  bufferOffline[totalOffline].portaAberta = porta;
+  bufferOffline[totalOffline].tempoPortaSegs = tempoPorta;
+  bufferOffline[totalOffline].timestamp = tsFinal;
+  bufferOffline[totalOffline].horarioEstimado = estimado;
+  bufferOffline[totalOffline].idUnico = proximoIdEvento++;
+
+  totalOffline++;
+
+  salvarBufferNaFlash();
+}
+
+// =====================================================
+// SALVAR EVENTO DE PORTA OFFLINE
+// =====================================================
+void salvarEventoPortaOffline(
+  unsigned long duracao,
+  time_t ts
+) {
+  bool estimado = !horarioSincronizado();
+
+  time_t tsFinal =
+    (ts > 1700000000UL)
+    ? ts
+    : (horarioSincronizado()
+       ? time(NULL)
+       : (millis() / 1000));
+
+  if (totalPortaOffline >= MAX_PORTA_OFFLINE) {
+    for (int i = 0; i < MAX_PORTA_OFFLINE - 1; i++) {
+      bufferPortaOffline[i] = bufferPortaOffline[i + 1];
+    }
+
+    totalPortaOffline = MAX_PORTA_OFFLINE - 1;
+  }
+
+  bufferPortaOffline[totalPortaOffline].duracaoSegs = duracao;
+  bufferPortaOffline[totalPortaOffline].timestamp = tsFinal;
+  bufferPortaOffline[totalPortaOffline].idUnico = proximoIdEvento++;
+  bufferPortaOffline[totalPortaOffline].horarioEstimado = estimado;
+
+  totalPortaOffline++;
+
+  salvarBufferNaFlash();
+}
+
+// =====================================================
+// CONSULTAR CONFIGURACAO
+// =====================================================
+void consultarConfiguracaoFirebase() {
+  if (!online || WiFi.status() != WL_CONNECTED) {
+    registrarFalhaRede();
+    return;
+  }
+
+  HTTPClient http;
+
+  String url =
+    "https://" + String(FIREBASE_HOST) +
+    ROTA_CONFIG_SENSOR +
+    ".json?auth=" + String(FIREBASE_TOKEN);
+
+  unsigned long inicioConsulta = millis();
+
+  http.setConnectTimeout(5000);
+  http.setTimeout(5000);
+
+  if (!http.begin(url)) {
+    registrarResultadoFirebase(
+      "GET",
+      ROTA_CONFIG_SENSOR,
+      -1,
+      millis() - inicioConsulta
+    );
+
+    http.end();
+    registrarFalhaRede();
+    return;
+  }
+
+  int httpCode = http.GET();
+
+  registrarResultadoFirebase(
+    "GET",
+    ROTA_CONFIG_SENSOR,
+    httpCode,
+    millis() - inicioConsulta
+  );
+
+  if (httpCode == 200) {
+    StaticJsonDocument<768> doc;
+
+    DeserializationError err =
+      deserializeJson(doc, http.getString());
+
+    if (!err) {
+      registrarSucessoRede();
+
+      if (doc.containsKey("offsetTemp")) {
+        offsetTemp = doc["offsetTemp"].as<float>();
+      }
+
+      if (doc.containsKey("offsetHum")) {
+        offsetHum = doc["offsetHum"].as<float>();
+      }
+
+      long valSegs = 0;
+
+      if (doc.containsKey("freqRegistro")) {
+        valSegs = doc["freqRegistro"];
+      } else if (doc.containsKey("intervaloAlerta")) {
+        valSegs = doc["intervaloAlerta"];
+      } else if (doc.containsKey("intervalo")) {
+        valSegs = doc["intervalo"];
+      }
+
+      if (valSegs > 0) {
+        valSegs = constrain(valSegs, 10, 86400);
+
+        if (valSegs != ultimaFreqRegistradaNoFirebase) {
+          ultimaFreqRegistradaNoFirebase = valSegs;
+          intervalHistorico = (unsigned long)valSegs * 1000UL;
+          lastHistorico = millis();
+        }
+      }
+
+      if (doc.containsKey("tempoMaxPortaAberta")) {
+        long minMax =
+          doc["tempoMaxPortaAberta"].as<long>();
+
+        if (minMax > 0) {
+          minMax = constrain(minMax, 1L, 1440L);
+          tempoMaxPortaSegs = (unsigned long)minMax * 60UL;
+        }
+      } else if (doc.containsKey("tempoMaxPortaSegs")) {
+        long segMax =
+          doc["tempoMaxPortaSegs"].as<long>();
+
+        if (segMax > 0) {
+          segMax = constrain(segMax, 10L, 86400L);
+          tempoMaxPortaSegs = (unsigned long)segMax;
+        }
+      }
+
+      if (doc.containsKey("buzzerHabilitado")) {
+        buzzerHabilitado =
+          doc["buzzerHabilitado"].as<bool>();
+      }
+
+      if (doc.containsKey("silenciarAlarme")) {
+        silenciarAlarme =
+          doc["silenciarAlarme"].as<bool>();
+      }
+
+      if (
+        doc.containsKey("resetar_wifi") &&
+        doc["resetar_wifi"].as<bool>()
+      ) {
+        pendenciaResetWifi = true;
+      }
+
+      pendenciaConsultaConfig = false;
+
+      Serial.print("[BUZZER] Configuracao recebida. Silenciado: ");
+      Serial.println(silenciarAlarme ? "SIM" : "NAO");
+
+    } else {
+      Serial.println("[FIREBASE] Erro ao interpretar configuracoes.");
+      registrarFalhaRede();
+    }
+  } else {
+    registrarFalhaRede();
+  }
+
+  http.end();
+}
+
+// =====================================================
+// GERENCIADOR DA FILA FIREBASE
+// PRIORIDADE:
+// 1. Reset solicitado
+// 2. Estado da porta
+// 3. Temperatura e umidade
+// 4. Tempo de porta aberta
+// 5. Sincronizacao inicial
+// 6. Heartbeat
+// 7. Configuracao
+// 8. Historicos offline
+// =====================================================
+void gerenciarFilaFirebase() {
+  if (
+    !online ||
+    portalAtivo ||
+    WiFi.status() != WL_CONNECTED
+  ) {
+    return;
+  }
+
+  if (
+    (int32_t)(millis() - proximaTentativaFirebaseMs) < 0
+  ) {
+    return;
+  }
+
+  // 1. RESET WIFI
+  if (pendenciaResetWifi) {
+    if (
+      firebasePATCH(
+        ROTA_CONFIG_SENSOR,
+        "{\"resetar_wifi\":false}"
+      )
+    ) {
+      pendenciaResetWifi = false;
+      registrarSucessoRede();
+
+      wm.resetSettings();
+      delay(500);
+      ESP.restart();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 2. ESTADO DA PORTA
+  if (pendenciaEstadoPorta) {
+    StaticJsonDocument<128> doc;
+
+    doc["porta_aberta"] = valorDesejadoPorta;
+    doc["tempo_aberta_segs"] =
+      valorDesejadoPorta
+      ? (unsigned long)((millis() - inicioAberturaMs) / 1000UL)
+      : 0;
+
+    String jsonStr;
+    serializeJson(doc, jsonStr);
+
+    if (
+      firebasePATCH(
+        "/sensores/" + SENSOR_ID,
+        jsonStr
+      )
+    ) {
+      pendenciaEstadoPorta = false;
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 3. TEMPERATURA E UMIDADE
+  if (pendenciaTempoReal) {
+    if (
+      !isnan(tempAtual) &&
+      !isnan(humAtual) &&
+      ((millis() - ultimaLeituraValidaMs) <= 30000)
+    ) {
+      StaticJsonDocument<192> doc;
+
+      doc["temp"] =
+        round(tempAtual * 100.0) / 100.0;
+
+      doc["hum"] =
+        round(humAtual * 100.0) / 100.0;
+
+      doc["last_seen"][".sv"] = "timestamp";
+
+      String jsonStr;
+      serializeJson(doc, jsonStr);
+
+      if (
+        firebasePATCH(
+          "/sensores/" + SENSOR_ID,
+          jsonStr
+        )
+      ) {
+        pendenciaTempoReal = false;
+
+        pendenciaHeartbeat = false;
+        lastHeartbeat = millis();
+
+        registrarSucessoRede();
+      } else {
+        registrarFalhaRede();
+      }
+    } else {
+      pendenciaTempoReal = false;
+    }
+
+    return;
+  }
+
+  // 4. TEMPO DE PORTA ABERTA
+  if (pendenciaTempoPorta) {
+    if (
+      firebasePUT(
+        ROTA_PORTA_TEMPO,
+        String(tempoPortaAtualEnvio)
+      )
+    ) {
+      pendenciaTempoPorta = false;
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 5. SINCRONIZACAO INICIAL DA PORTA
+  if (pendenciaSincronizacaoInicial) {
+    bool aberta = portaAbertaEstavel;
+
+    unsigned long tempoAberta =
+      aberta
+      ? (millis() - inicioAberturaMs) / 1000UL
+      : 0;
+
+    StaticJsonDocument<128> doc;
+
+    doc["porta_aberta"] = aberta;
+    doc["tempo_aberta_segs"] = tempoAberta;
+
+    String jsonStr;
+    serializeJson(doc, jsonStr);
+
+    if (
+      firebasePATCH(
+        "/sensores/" + SENSOR_ID,
+        jsonStr
+      )
+    ) {
+      pendenciaSincronizacaoInicial = false;
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 6. HEARTBEAT
+  if (pendenciaHeartbeat) {
+    String jsonHeartbeat =
+      "{\"last_seen\":{\".sv\":\"timestamp\"}}";
+
+    if (
+      firebasePATCH(
+        "/sensores/" + SENSOR_ID,
+        jsonHeartbeat
+      )
+    ) {
+      pendenciaHeartbeat = false;
+      lastHeartbeat = millis();
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 7. CONSULTA DE CONFIGURACAO
+  if (pendenciaConsultaConfig) {
+    consultarConfiguracaoFirebase();
+    return;
+  }
+
+  // 8. HISTORICO OFFLINE DE TEMPERATURA
+  if (totalOffline > 0) {
+    if (!horarioSincronizado()) return;
+
+    LeituraOffline item = bufferOffline[0];
+
+    time_t tsFinal =
+      (item.timestamp > 1700000000UL)
+      ? item.timestamp
+      : time(NULL);
+
+    struct tm ti;
+    localtime_r(&tsFinal, &ti);
+
+    char dataHoje[16];
+
+    strftime(
+      dataHoje,
+      sizeof(dataHoje),
+      "%Y-%m-%d",
+      &ti
+    );
+
+    String chaveUnica =
+      String(tsFinal) + "_" + String(item.idUnico);
+
+    String json =
+      "{\"temp\":" + String(item.temp, 2) +
+      ",\"hum\":" + String(item.hum, 2) +
+      ",\"porta_aberta\":" +
+      String(item.portaAberta ? "true" : "false") +
+      ",\"tempo_aberta_segs\":" +
+      String(item.tempoPortaSegs) +
+      ",\"offline\":true" +
+      ",\"horario_estimado\":" +
+      String(item.horarioEstimado ? "true" : "false") +
+      "}";
+
+    if (
+      firebasePUT(
+        ROTA_HISTORICO_BASE +
+        "/" + String(dataHoje) +
+        "/" + chaveUnica,
+        json
+      )
+    ) {
+      for (int i = 0; i < totalOffline - 1; i++) {
+        bufferOffline[i] = bufferOffline[i + 1];
+      }
+
+      totalOffline--;
+
+      salvarBufferNaFlash();
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+
+  // 9. HISTORICO DE EVENTOS DA PORTA
+  if (totalPortaOffline > 0) {
+    if (!horarioSincronizado()) return;
+
+    EventoPortaOffline ev = bufferPortaOffline[0];
+
+    time_t tsFinal =
+      (ev.timestamp > 1700000000UL)
+      ? ev.timestamp
+      : time(NULL);
+
+    String chaveUnica =
+      String(tsFinal) + "_" + String(ev.idUnico);
+
+    String jsonEvento =
+      "{\"duracao_segs\":" +
+      String(ev.duracaoSegs) +
+      ",\"timestamp\":" +
+      String(tsFinal) +
+      ",\"offline\":true" +
+      ",\"horario_estimado\":" +
+      String(ev.horarioEstimado ? "true" : "false") +
+      "}";
+
+    if (
+      firebasePUT(
+        ROTA_PORTA_HISTORICO + "/" + chaveUnica,
+        jsonEvento
+      )
+    ) {
+      for (int i = 0; i < totalPortaOffline - 1; i++) {
+        bufferPortaOffline[i] =
+          bufferPortaOffline[i + 1];
+      }
+
+      totalPortaOffline--;
+
+      salvarBufferNaFlash();
+      registrarSucessoRede();
+    } else {
+      registrarFalhaRede();
+    }
+
+    return;
+  }
+}
+
+// =====================================================
+// MONITORAMENTO DA PORTA - PROCESSAMENTO DA FILA
+// =====================================================
+// Importante:
+// Esta funcao nao le o GPIO13.
+// Ela recebe os eventos detectados pela tarefa dedicada.
+// =====================================================
+void monitorarPorta() {
+  if (filaEventosPorta == NULL) return;
+
+  EventoPorta evento;
+
+  // Processa todos os eventos pendentes.
+  while (
+    xQueueReceive(
+      filaEventosPorta,
+      &evento,
+      0
+    ) == pdTRUE
+  ) {
+    portaAbertaEstavel = evento.aberta;
+
+    if (evento.aberta) {
+      // ---------------------------------------------
+      // PORTA ABRIU
+      // ---------------------------------------------
+      inicioAberturaMs = evento.instanteMs;
+      lastAtualizacaoTempoPorta = evento.instanteMs;
+
+      timestampAberturaReal = evento.timestamp;
+
+      salvarEstadoAberturaFlash(
+        true,
+        timestampAberturaReal
+      );
+
+      valorDesejadoPorta = true;
+      pendenciaEstadoPorta = true;
+
+      Serial.println("[PORTA] Estado aberto processado pelo loop.");
+
+    } else {
+      // ---------------------------------------------
+      // PORTA FECHOU
+      // ---------------------------------------------
+      unsigned long duracaoTotalSegs =
+        evento.duracaoSegs;
+
+      pendenciaTempoPorta = false;
+      tempoPortaAtualEnvio = 0;
+
+      valorDesejadoPorta = false;
+      pendenciaEstadoPorta = true;
+
+      salvarEstadoAberturaFlash(false, 0);
+
+      timestampAberturaReal = 0;
+
+      Serial.print("[PORTA] Duracao da abertura: ");
+      Serial.print(duracaoTotalSegs);
+      Serial.println(" segundos.");
+
+      if (duracaoTotalSegs >= tempoMaxPortaSegs) {
+        salvarEventoPortaOffline(
+          duracaoTotalSegs,
+          evento.timestamp
+        );
+      }
+    }
+  }
+
+  // -----------------------------------------------
+  // ATUALIZACAO DO TEMPO ENQUANTO A PORTA ESTA ABERTA
+  // -----------------------------------------------
+  if (portaAbertaEstavel) {
+    unsigned long tempoDecorridoSegs =
+      (millis() - inicioAberturaMs) / 1000UL;
+
+    if (
+      (millis() - lastAtualizacaoTempoPorta) >= 3000
+    ) {
+      lastAtualizacaoTempoPorta = millis();
+
+      tempoPortaAtualEnvio = tempoDecorridoSegs;
+      pendenciaTempoPorta = true;
+    }
+  }
+}
+
+// =====================================================
+// SETUP
+// =====================================================
+void setup() {
+  Serial.begin(115200);
+  delay(200);
+
+  inicioSistemaMs = millis();
+
+  char bufferId[16];
+
+  sprintf(
+    bufferId,
+    "SENSOR_%02d",
+    SENSOR_NUM
+  );
+
+  SENSOR_ID = String(bufferId);
+
+  ROTA_TEMP =
+    "/sensores/" + SENSOR_ID + "/temp";
+
+  ROTA_HUM =
+    "/sensores/" + SENSOR_ID + "/hum";
+
+  ROTA_SEEN =
+    "/sensores/" + SENSOR_ID + "/last_seen";
+
+  ROTA_CONFIG_SENSOR =
+    "/central_sensores/" + SENSOR_ID;
+
+  ROTA_HISTORICO_BASE =
+    "/historico/" + SENSOR_ID + "/diario";
+
+  ROTA_PORTA_HISTORICO =
+    "/historico/" + SENSOR_ID + "/eventos_porta";
+
+  ROTA_PORTA_ESTADO =
+    "/sensores/" + SENSOR_ID + "/porta_aberta";
+
+  ROTA_PORTA_TEMPO =
+    "/sensores/" + SENSOR_ID + "/tempo_aberta_segs";
+
+  // -----------------------------------------------
+  // PINOS
+  // -----------------------------------------------
+  pinMode(PIN_BUZZER, OUTPUT);
+  digitalWrite(PIN_BUZZER, LOW);
+
+  pinMode(PIN_PORTA, INPUT_PULLUP);
+
+  // -----------------------------------------------
+  // BUFFER OFFLINE
+  // -----------------------------------------------
+  carregarBufferDasFlash();
+
+  // -----------------------------------------------
+  // SHT41
+  // -----------------------------------------------
+  Wire.begin(2, 15);
+
+  if (!sht4.begin()) {
+    shtInicializado = false;
+    Serial.println("[SHT41] Sensor nao encontrado.");
+  } else {
+    shtInicializado = true;
+    Serial.println("[SHT41] Inicializado.");
+  }
+
+  // -----------------------------------------------
+  // WIFIMANAGER
+  // -----------------------------------------------
+  wm.setTitle("NewEnergy Monitor Pro");
+  wm.setConfigPortalBlocking(false);
+
+  // -----------------------------------------------
+  // EVENTOS WIFI
+  // -----------------------------------------------
+  WiFi.onEvent(eventoWiFi);
+
+  // -----------------------------------------------
+  // WIFI
+  // -----------------------------------------------
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(false);
+  WiFi.setSleep(false);
+
+  Serial.println("[WIFI] Tentando conectar com rede salva.");
+
+  WiFi.begin();
+
+  lastWifiRetry = millis();
+
+  unsigned long startAttemptTime = millis();
+
+  while (
+    WiFi.status() != WL_CONNECTED &&
+    (millis() - startAttemptTime) < TEMPO_CONEXAO_INICIAL
+  ) {
+    delay(250);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    online = true;
+
+    inicioWifiConectado = millis();
+
+    pendenciaSincronizacaoInicial = true;
+    pendenciaConsultaConfig = true;
+    pendenciaHeartbeat = true;
+
+    Serial.println("[WIFI] Conectado. Validando Firebase.");
+
+    Serial.print("[WIFI] IP: ");
+    Serial.println(WiFi.localIP());
+
+  } else {
+    String apName =
+      "NewEnergy_Setup_" + String(SENSOR_NUM);
+
+    Serial.println("[WIFI] Sem conexao em 20 segundos. Abrindo portal.");
+
+    WiFi.mode(WIFI_AP_STA);
+
+    wm.startConfigPortal(apName.c_str());
+
+    portalAtivo = true;
+    online = false;
+
+    tempoInicioPortal = millis();
+
+    inicioWifiConectado = 0;
+    inicioWifiDesconectado = 0;
+
+    Serial.print("[WIFI] Portal: ");
+    Serial.println(apName);
+
+    Serial.println("[WIFI] Endereco: 192.168.4.1");
+  }
+
+  // -----------------------------------------------
+  // NTP
+  // -----------------------------------------------
+  configTime(
+    -10800,
+    0,
+    "pool.ntp.org",
+    "time.google.com"
+  );
+
+  unsigned long ntpStart = millis();
+
+  while (
+    !horarioSincronizado() &&
+    (millis() - ntpStart) < 2000
+  ) {
+    delay(100);
+  }
+
+  // -----------------------------------------------
+  // ESTADO INICIAL DA PORTA
+  // -----------------------------------------------
+  inicializarEstadoPortaNoBoot();
+
+  // -----------------------------------------------
+  // CRIAR FILA DE EVENTOS DA PORTA
+  // -----------------------------------------------
+  filaEventosPorta = xQueueCreate(
+    TAMANHO_FILA_PORTA,
+    sizeof(EventoPorta)
+  );
+
+  if (filaEventosPorta == NULL) {
+    Serial.println("[ERRO] Nao foi possivel criar fila da porta.");
+  } else {
+    Serial.println("[PORTA] Fila de eventos criada.");
+  }
+
+  // -----------------------------------------------
+  // INICIAR TAREFA UNICA DA PORTA E BUZZER
+  // -----------------------------------------------
+  if (filaEventosPorta != NULL) {
+    BaseType_t resultadoTarefa =
+      xTaskCreatePinnedToCore(
+        tarefaMonitoramentoPorta,
+        "TarefaPortaBuzzer",
+        4096,
+        NULL,
+        3,
+        &tarefaPortaHandle,
+        1
+      );
+
+    if (resultadoTarefa == pdPASS) {
+      Serial.println(
+        "[PORTA] Tarefa unica de monitoramento e buzzer iniciada."
+      );
+    } else {
+      Serial.println(
+        "[ERRO] Nao foi possivel iniciar tarefa da porta."
+      );
+    }
+  }
+
+  // -----------------------------------------------
+  // TEMPORIZADORES
+  // -----------------------------------------------
+  lastConfig = millis();
+  lastHistorico = millis();
+  lastLeituraSht = millis();
+
+  lastHeartbeat = millis();
+  lastRealtime = millis();
+
+  Serial.println("[SISTEMA] NewEnergy Monitor Pro iniciado.");
+}
+
+// =====================================================
+// LOOP PRINCIPAL
+// =====================================================
+void loop() {
+  // -----------------------------------------------
+  // REINICIALIZACAO PROGRAMADA
+  // -----------------------------------------------
+  if (
+    (millis() - inicioSistemaMs) >= REBOOT_INTERVAL
+  ) {
+    ESP.restart();
+  }
+
+  // -----------------------------------------------
+  // WIFI
+  // -----------------------------------------------
+  manterWiFi();
+
+  // -----------------------------------------------
+  // PROCESSAR EVENTOS DA PORTA
+  // -----------------------------------------------
+  // O GPIO13 nao e lido aqui.
+  // Os eventos chegam pela fila FreeRTOS.
+  monitorarPorta();
+
+  verificarRecuperacaoPortaPosNTP();
+
+  // -----------------------------------------------
+  // LEITURA SHT41 A CADA 1 SEGUNDO
+  // -----------------------------------------------
+  if ((millis() - lastLeituraSht) >= 1000) {
+    lastLeituraSht = millis();
+
+    if (shtInicializado) {
+      sensors_event_t h, t;
+
+      if (sht4.getEvent(&h, &t)) {
+        if (
+          !isnan(t.temperature) &&
+          !isnan(h.relative_humidity)
+        ) {
+          tempAtual =
+            t.temperature + offsetTemp;
+
+          humAtual =
+            h.relative_humidity + offsetHum;
+
+          ultimaLeituraValidaMs = millis();
+        }
+      }
+    }
+  }
+
+  // -----------------------------------------------
+  // VERIFICACAO DA LEITURA DO SHT41
+  // -----------------------------------------------
+  if (
+    ultimaLeituraValidaMs > 0 &&
+    (millis() - ultimaLeituraValidaMs) > 30000
+  ) {
+    tempAtual = NAN;
+    humAtual = NAN;
+  }
+
+  // -----------------------------------------------
+  // ENVIO EM TEMPO REAL A CADA 3 SEGUNDOS
+  // -----------------------------------------------
+  if (
+    online &&
+    !portalAtivo &&
+    (millis() - lastRealtime >= intervalRealtime)
+  ) {
+    lastRealtime = millis();
+
+    if (
+      !isnan(tempAtual) &&
+      !isnan(humAtual) &&
+      ((millis() - ultimaLeituraValidaMs) <= 30000)
+    ) {
+      pendenciaTempoReal = true;
+    }
+  }
+
+  // -----------------------------------------------
+  // HEARTBEAT
+  // -----------------------------------------------
+  // lastHeartbeat so e atualizado quando o Firebase
+  // confirmar o envio do heartbeat ou PATCH de temperatura.
+  if (
+    (millis() - lastHeartbeat) >=
+    INTERVALO_HEARTBEAT
+  ) {
+    pendenciaHeartbeat = true;
+  }
+
+  // -----------------------------------------------
+  // CONSULTA DE CONFIGURACAO A CADA 30 SEGUNDOS
+  // -----------------------------------------------
+  if (
+    online &&
+    !portalAtivo &&
+    (millis() - lastConfig >=
+     INTERVALO_CONSULTA_CONFIG)
+  ) {
+    lastConfig = millis();
+    pendenciaConsultaConfig = true;
+  }
+
+  // -----------------------------------------------
+  // HISTORICO
+  // -----------------------------------------------
+  if (
+    (millis() - lastHistorico) >= intervalHistorico
+  ) {
+    lastHistorico = millis();
+
+    if (
+      !isnan(tempAtual) &&
+      !isnan(humAtual) &&
+      ((millis() - ultimaLeituraValidaMs) <= 30000)
+    ) {
+      time_t agora = obterTimestampSeguro();
+
+      bool portaAbertaAgora =
+        portaAbertaEstavel;
+
+      unsigned long tempoPorta =
+        portaAbertaAgora
+        ? ((millis() - inicioAberturaMs) / 1000UL)
+        : 0;
+
+      salvarLeituraOffline(
+        tempAtual,
+        humAtual,
+        portaAbertaAgora,
+        tempoPorta,
+        agora
+      );
+    }
+  }
+
+  // -----------------------------------------------
+  // COMUNICACAO FIREBASE
+  // -----------------------------------------------
+  // A fila envia apenas uma operacao por vez.
+  // A tarefa da porta continua funcionando durante HTTP.
+  if (online && !portalAtivo) {
+    gerenciarFilaFirebase();
+  }
+
+  delay(10);
+}
